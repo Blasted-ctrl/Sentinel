@@ -93,6 +93,11 @@ def create_app() -> FastAPI:
             for region, score in repository.latest_scores_all(db)
         ]
 
+    @app.get("/risk/geojson", tags=["risk"])
+    def risk_geojson(db: Annotated[Session, Depends(get_db)]) -> dict[str, object]:
+        """Regions as a GeoJSON FeatureCollection with latest scores (for the map)."""
+        return repository.regions_geojson(db)
+
     return app
 
 

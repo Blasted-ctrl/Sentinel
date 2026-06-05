@@ -269,6 +269,49 @@ def build_ensemble_command(
     typer.echo(json.dumps(report["test"]["ensemble"], indent=2))
 
 
+@app.command("seed-demo")
+def seed_demo(
+    region: Annotated[
+        str, typer.Option("--region", help="bbox min_lon,min_lat,max_lon,max_lat")
+    ] = "-124.0,37.0,-119.0,41.0",
+    cell_size: Annotated[float, typer.Option("--cell-size")] = 1.0,
+    score: Annotated[
+        bool,
+        typer.Option("--score/--no-score", help="also compute risk scores (needs models)"),
+    ] = False,
+    init: Annotated[bool, typer.Option("--init/--no-init")] = True,
+) -> None:
+    """Create grid-cell regions (and optionally score them) so the map has data."""
+    from datetime import date as _date
+
+    from sentinel.data.climate import grid_regions
+    from sentinel.ingest.pipeline import get_or_create_region
+
+    settings = get_settings()
+    configure_logging(settings.log_level, json=settings.log_json)
+    try:
+        bbox = parse_bbox(region)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    engine = get_engine()
+    if init:
+        init_db(engine)
+
+    regions = grid_regions(bbox, cell_size)
+    with session_scope(engine) as session:
+        for grid_region in regions:
+            get_or_create_region(session, grid_region.key, grid_region.bbox)
+    typer.echo(f"Seeded {len(regions)} regions.")
+
+    if score:
+        from sentinel.tasks.scoring import get_scorer, rescore_regions
+
+        with session_scope(engine) as session:
+            summary = rescore_regions(session, get_scorer(), _date.today())
+        typer.echo(json.dumps(summary, indent=2))
+
+
 def main() -> None:
     """Console-script entry point."""
     app()

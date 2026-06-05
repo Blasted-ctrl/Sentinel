@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = False
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_db_url(cls, value: str) -> str:
+        """Rewrite platform-style URLs (Render/Heroku) to the psycopg driver."""
+        if value.startswith("postgres://"):
+            value = "postgresql://" + value[len("postgres://") :]
+        if value.startswith("postgresql://"):
+            value = "postgresql+psycopg://" + value[len("postgresql://") :]
+        return value
 
 
 @lru_cache(maxsize=1)

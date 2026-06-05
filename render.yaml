@@ -1,0 +1,54 @@
+# Render Blueprint for the Sentinel backend (API + worker + Redis + PostGIS).
+# Frontend deploys separately to Vercel (see frontend/ and README "Deploy").
+# Provision: Render Dashboard -> New -> Blueprint -> point at this repo.
+
+databases:
+  - name: sentinel-db
+    plan: free
+    postgresMajorVersion: "16"
+    # After first deploy, enable PostGIS once: `CREATE EXTENSION IF NOT EXISTS postgis;`
+    # (run via `sentinel init-db` or psql).
+
+services:
+  - type: redis
+    name: sentinel-redis
+    plan: free
+    ipAllowList: []
+
+  - type: web
+    name: sentinel-api
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sentinel-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: sentinel-redis
+          property: connectionString
+      - key: CORS_ORIGINS
+        sync: false # set to your Vercel URL
+
+  - type: worker
+    name: sentinel-worker
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    dockerCommand: celery -A sentinel.tasks.celery_app worker --beat --loglevel=info
+    plan: starter # models (torch+tf) need more memory than free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sentinel-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: sentinel-redis
+          property: connectionString

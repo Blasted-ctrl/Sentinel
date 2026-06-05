@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from typing import Any
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -51,6 +53,31 @@ def latest_scores_all(session: Session) -> list[tuple[Region, RiskScore]]:
         if score is not None:
             out.append((region, score))
     return out
+
+
+def regions_geojson(session: Session) -> dict[str, Any]:
+    """Return regions as a GeoJSON FeatureCollection with their latest risk score."""
+    rows = session.execute(
+        select(Region.id, Region.name, func.ST_AsGeoJSON(Region.geom))
+    ).all()
+    features: list[dict[str, Any]] = []
+    for region_id, name, geom_json in rows:
+        score = latest_risk_score(session, region_id)
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geom_json),
+                "properties": {
+                    "region_id": region_id,
+                    "region_name": name,
+                    "date": score.date.isoformat() if score else None,
+                    "ensemble_score": score.ensemble_score if score else None,
+                    "cnn_score": score.cnn_score if score else None,
+                    "lstm_score": score.lstm_score if score else None,
+                },
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
 
 
 def upsert_risk_score(

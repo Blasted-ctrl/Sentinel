@@ -74,23 +74,25 @@ flowchart LR
 
 ```
 sentinel/
-├─ .github/workflows/ci.yml      # lint + type-check + tests (PostGIS service)
-├─ docker-compose.yml            # PostGIS + Redis + MinIO dev stack
-├─ .env.example                  # configuration template (copy to .env)
-└─ backend/
-   ├─ pyproject.toml             # deps, ruff, mypy, pytest config
-   ├─ alembic.ini · migrations/  # schema migrations
-   └─ src/sentinel/
-      ├─ config.py · logging.py · geo.py
-      ├─ db/        # PostGIS ORM models + schema bootstrap
-      ├─ ingest/    # FIRMS, Open-Meteo, STAC clients + pipeline
-      ├─ data/      # dataset loading + leakage-safe geospatial splitting
-      ├─ models/    # ResNet CNN, Keras LSTM, ensemble, inference
-      ├─ training/  # training loops, metrics, deterministic seeding
-      ├─ serving/   # risk repository + live scorer
-      ├─ api/       # FastAPI app (risk endpoints)
-      ├─ tasks/     # Celery app + daily re-scoring
-      └─ cli.py     # `sentinel` command-line entry point
+├─ .github/workflows/ci.yml      # lint + type-check + tests (backend + frontend)
+├─ docker-compose.yml            # full local stack
+├─ render.yaml                   # backend deploy blueprint (Render)
+├─ backend/
+│  ├─ pyproject.toml · Dockerfile · alembic.ini · migrations/
+│  └─ src/sentinel/
+│     ├─ config.py · logging.py · geo.py
+│     ├─ db/        # PostGIS ORM models + schema bootstrap
+│     ├─ ingest/    # FIRMS, Open-Meteo, STAC clients + pipeline
+│     ├─ data/      # dataset loading + leakage-safe geospatial splitting
+│     ├─ models/    # ResNet CNN, Keras LSTM, ensemble, inference
+│     ├─ training/  # training loops, metrics, deterministic seeding
+│     ├─ serving/   # risk repository + live scorer
+│     ├─ api/       # FastAPI app (risk endpoints)
+│     ├─ tasks/     # Celery app + daily re-scoring
+│     └─ cli.py     # `sentinel` command-line entry point
+└─ frontend/        # Next.js + TypeScript + Leaflet dashboard
+   ├─ Dockerfile
+   └─ src/{app,components,lib}
 ```
 
 ## Getting started
@@ -244,6 +246,36 @@ A Celery **beat** schedule re-scores every tracked region daily at 06:00 UTC;
 each score fuses the live LSTM climate risk with the CNN imagery prior via the
 ensemble meta-model and upserts it into the `risk_scores` table.
 
+## Dashboard
+
+A Next.js + TypeScript dashboard (`frontend/`) renders a Leaflet map with
+color-coded regional risk overlays, a region detail panel breaking down the
+ensemble / climate / imagery component scores, and a date selector — in a clean
+white + ember "fire" theme (Bricolage Grotesque + IBM Plex, lucide icons).
+
+```bash
+cd frontend
+pnpm install
+cp .env.example .env.local          # point NEXT_PUBLIC_API_URL at the API
+pnpm dev                             # http://localhost:3000
+```
+
+Populate the map with regions (and, with `--score`, real fused scores):
+
+```bash
+cd backend
+uv run sentinel seed-demo --score    # grid regions over N. California
+```
+
+## Deploy
+
+- **Frontend → Vercel.** Import the repo, set the root to `frontend/`, and add
+  `NEXT_PUBLIC_API_URL`. Vercel auto-detects Next.js.
+- **Backend → Render.** [`render.yaml`](render.yaml) is a Blueprint that
+  provisions PostGIS, Redis, the API (Docker), and the Celery worker/beat. Set
+  `CORS_ORIGINS` to your Vercel URL. (`docker-compose.yml` runs the whole stack
+  locally.)
+
 ## Development
 
 ```bash
@@ -264,8 +296,8 @@ tests against a service container) on every push and pull request.
 - [x] **Phase 2 — CNN** on satellite imagery, stratified geospatial split, **98.9% recall** on held-out regions.
 - [x] **Phase 3 — LSTM** on climate time-series (AUC **0.80**) + CNN/LSTM ensemble with honest domain-shift analysis.
 - [x] **Phase 4 — FastAPI** risk endpoint + Celery daily re-scoring + backend Dockerfile.
-- [ ] **Phase 5 — Next.js** risk-map dashboard + deployment.
-- [ ] **Phase 6 — Hardening + docs** with real measured metrics and a live demo.
+- [x] **Phase 5 — Next.js** Leaflet risk-map dashboard + Vercel/Render deploy config.
+- [ ] **Phase 6 — Hardening + docs** with real measured metrics, screenshots, and a live demo.
 
 ## License
 

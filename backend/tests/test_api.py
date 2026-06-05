@@ -91,3 +91,22 @@ def test_risk_latest_all(client: TestClient, monkeypatch: pytest.MonkeyPatch) ->
     assert resp.status_code == 200
     assert len(resp.json()) == 1
     assert resp.json()[0]["ensemble_score"] == 0.72
+
+
+def test_risk_geojson(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    fc = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]},
+                "properties": {"region_id": 1, "region_name": "sierra", "ensemble_score": 0.72},
+            }
+        ],
+    }
+    monkeypatch.setattr(repository, "regions_geojson", lambda db: fc)
+    resp = client.get("/risk/geojson")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["type"] == "FeatureCollection"
+    assert body["features"][0]["properties"]["ensemble_score"] == 0.72

@@ -6,6 +6,7 @@ from sentinel.serving.repository import (
     latest_risk_score,
     latest_scores_all,
     list_regions,
+    regions_geojson,
     upsert_risk_score,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "latest_risk_score",
     "latest_scores_all",
     "list_regions",
+    "regions_geojson",
     "upsert_risk_score",
 ]
