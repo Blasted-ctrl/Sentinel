@@ -98,6 +98,9 @@ module = [
     "torchvision.*",
     "kagglehub.*",
     "PIL.*",
+    "tensorflow.*",
+    "keras.*",
+    "joblib.*",
 ]
 ignore_missing_imports = true
 

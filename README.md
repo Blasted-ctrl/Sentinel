@@ -146,11 +146,30 @@ splits), fine-tunes a pretrained ResNet18 with class-weighted loss, evaluates on
 held-out test set, and writes `metrics/cnn/metrics.json` — the single source of
 truth for the numbers below.
 
+### 5. Train the climate LSTM + ensemble
+
+```bash
+# Fire labels: FPA-FOD US wildfires (Kaggle). Weather: Open-Meteo (no key).
+FOD=$(uv run sentinel prepare-data --source kaggle \
+      --dataset rtatman/188-million-us-wildfires)/FPA_FOD_20170508.sqlite
+
+uv run sentinel train-lstm --fod-sqlite "$FOD" --output metrics/lstm
+uv run sentinel build-ensemble \
+    --lstm-dir metrics/lstm \
+    --cnn-checkpoint metrics/cnn/cnn_resnet18.pt \
+    --output metrics/ensemble
+```
+
+`train-lstm` builds region-grouped 14-day weather windows labelled by FOD fires,
+trains a class-weighted Keras LSTM on the leakage-safe split, and writes
+`metrics/lstm/metrics.json`. `build-ensemble` derives a per-region CNN imagery
+prior and fits a logistic meta-model fusing it with the LSTM climate risk.
+
 ## Measured results
 
-> Real numbers from `metrics/cnn/metrics.json`, evaluated on a **geospatially
-> held-out** test set (704 tiles, 56 regions never seen in training — no region
-> leakage). Reproduce with the command above (seed 42).
+> Every number here is read straight from a committed `metrics.json`, evaluated
+> on **geospatially held-out** regions (never seen in training — no region
+> leakage), with all RNG seeded (42). Nothing is hand-tuned for the README.
 
 ### Phase 2 — CNN (satellite imagery → fire / no-fire)
 
@@ -165,6 +184,40 @@ truth for the numbers below.
 
 ResNet18 transfer learning · 5,000 balanced tiles · 402 grid-cell regions
 (289 / 57 / 56 train / val / test) · class-weighted loss · CPU, 6 epochs, seed 42.
+
+### Phase 3 — LSTM (climate sequence → ignition in next 7 days)
+
+From `metrics/lstm/metrics.json`. 91,182 sliding 14-day weather windows across
+**42 Northern-California grid regions** (30 / 6 / 6 train / val / test, no region
+leakage), labelled by FPA-FOD fire occurrences. Predicting ignition **7 days
+ahead from weather alone is intentionally hard** — these are honest numbers.
+
+| Metric | Test | Notes |
+| --- | --- | --- |
+| ROC-AUC | **0.80** | ranking quality on unseen regions |
+| Recall | 0.73 | |
+| Precision | 0.69 | |
+| F1 | 0.71 | |
+| False-alarm rate | 0.28 | |
+
+### Phase 3 — CNN + LSTM ensemble (one risk score per region/day)
+
+From `metrics/ensemble/metrics.json`. A logistic meta-model fuses a **static CNN
+imagery prior** (one Sentinel-2 tile per region) with the **dynamic LSTM climate
+risk**, fit on validation and evaluated on held-out test regions.
+
+| Variant | ROC-AUC | Recall | False-alarm |
+| --- | --- | --- | --- |
+| **Ensemble (meta-model)** | 0.76 | 0.73 | 0.32 |
+| LSTM only | 0.80 | 0.73 | 0.28 |
+| CNN only | 0.47 | 0.17 | 0.16 |
+| Weighted average (0.5/0.5) | 0.68 | 0.47 | 0.18 |
+
+**Honest finding:** the meta-model learned to weight the LSTM ~3× the CNN
+(coefficients 5.18 vs 1.57), because the CNN — trained on Canadian aerial tiles —
+**transfers poorly to NorCal Sentinel-2 imagery (domain shift, AUC ≈ 0.47)**. The
+climate signal dominates; the imagery prior adds little on this evaluation. The
+ensemble plumbing is real and ready for a same-domain imagery model.
 
 ## Development
 
@@ -184,7 +237,7 @@ tests against a service container) on every push and pull request.
 
 - [x] **Phase 1 — Ingestion + PostGIS schema.** FIRMS/weather/imagery clients, geo schema, CLI, CI.
 - [x] **Phase 2 — CNN** on satellite imagery, stratified geospatial split, **98.9% recall** on held-out regions.
-- [ ] **Phase 3 — LSTM** on climate time-series + CNN/LSTM ensemble.
+- [x] **Phase 3 — LSTM** on climate time-series (AUC **0.80**) + CNN/LSTM ensemble with honest domain-shift analysis.
 - [ ] **Phase 4 — FastAPI** risk endpoint + Celery scheduled re-scoring.
 - [ ] **Phase 5 — Next.js** risk-map dashboard + deployment.
 - [ ] **Phase 6 — Hardening + docs** with real measured metrics and a live demo.

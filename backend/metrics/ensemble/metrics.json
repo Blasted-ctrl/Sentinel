@@ -1,0 +1,80 @@
+{
+  "model": "cnn-lstm-ensemble",
+  "task": "regional-ignition-risk",
+  "generated_at": "2026-06-05T03:32:57.268127+00:00",
+  "seed": 42,
+  "components": {
+    "cnn": "resnet18-transfer (imagery prior)",
+    "lstm": "keras-lstm (climate)",
+    "combiner": "logistic meta-model"
+  },
+  "config": {
+    "lstm_dir": "C:\\Users\\kings\\Sentinel\\backend\\metrics\\lstm",
+    "cnn_checkpoint": "C:\\Users\\kings\\Sentinel\\backend\\metrics\\cnn\\cnn_resnet18.pt",
+    "output_dir": "C:\\Users\\kings\\Sentinel\\backend\\metrics\\ensemble",
+    "imagery_start": "2023-06-01",
+    "imagery_end": "2023-09-30",
+    "stac_max_cloud": 40,
+    "threshold": 0.5,
+    "seed": 42,
+    "metrics_filename": "metrics.json",
+    "scorer_filename": "ensemble.joblib"
+  },
+  "test": {
+    "ensemble": {
+      "accuracy": 0.7041302011361892,
+      "precision": 0.6665658551338273,
+      "recall": 0.7277530130427604,
+      "f1": 0.6958168902920284,
+      "auc": 0.7616300618368574,
+      "false_alarm_rate": 0.3164012053379251,
+      "threshold": 0.5,
+      "support_positive": 6057,
+      "support_negative": 6969
+    },
+    "lstm_only": {
+      "accuracy": 0.7241670505143559,
+      "precision": 0.692922016911995,
+      "recall": 0.7305596830113917,
+      "f1": 0.7112432693080447,
+      "auc": 0.8003522190408416,
+      "false_alarm_rate": 0.281389008466064,
+      "threshold": 0.5,
+      "support_positive": 6057,
+      "support_negative": 6969
+    },
+    "cnn_only": {
+      "accuracy": 0.5249500998003992,
+      "precision": 0.4698295716259788,
+      "recall": 0.16840019811788015,
+      "f1": 0.24793388429752067,
+      "auc": 0.4672122228696802,
+      "false_alarm_rate": 0.1651599942602956,
+      "threshold": 0.5,
+      "support_positive": 6057,
+      "support_negative": 6969
+    },
+    "weighted_avg": {
+      "accuracy": 0.6568401658222017,
+      "precision": 0.6942472460220318,
+      "recall": 0.46821859006108635,
+      "f1": 0.5592585288897653,
+      "auc": 0.6784723867222737,
+      "false_alarm_rate": 0.17922227005309227,
+      "threshold": 0.5,
+      "support_positive": 6057,
+      "support_negative": 6969
+    }
+  },
+  "meta_model": {
+    "coef": [
+      1.5746862170550475,
+      5.177775685573583
+    ],
+    "intercept": -2.9870630810997754,
+    "feature_order": [
+      "cnn_prob",
+      "lstm_prob"
+    ]
+  }
+}

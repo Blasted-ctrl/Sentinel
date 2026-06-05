@@ -48,8 +48,8 @@ class WeatherClient:
         self._client = client or httpx.Client(timeout=timeout)
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=0.5, max=8),
+        stop=stop_after_attempt(6),
+        wait=wait_exponential(multiplier=1, max=30),
         reraise=True,
     )
     def _get(self, params: dict[str, str]) -> dict[str, object]:

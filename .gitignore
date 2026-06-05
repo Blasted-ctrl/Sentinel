@@ -31,6 +31,8 @@ out/
 *.onnx
 *.h5
 *.keras
+*.npz
+*.joblib
 # Downloaded datasets + training artifacts (scoped so the src/sentinel/data
 # package is NOT ignored).
 /data/

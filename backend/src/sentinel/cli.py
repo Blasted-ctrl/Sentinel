@@ -186,6 +186,89 @@ def train_cnn_command(
     typer.echo(json.dumps(report["test"], indent=2))
 
 
+@app.command("train-lstm")
+def train_lstm_command(
+    fod_sqlite: Annotated[
+        str, typer.Option("--fod-sqlite", help="path to the FPA-FOD .sqlite file")
+    ],
+    output: Annotated[str, typer.Option("--output")] = "artifacts/lstm",
+    region: Annotated[
+        str | None,
+        typer.Option("--region", help="bbox min_lon,min_lat,max_lon,max_lat"),
+    ] = None,
+    cell_size: Annotated[float, typer.Option("--cell-size")] = 1.0,
+    start: Annotated[str, typer.Option("--start", help="YYYY-MM-DD")] = "2010-01-01",
+    end: Annotated[str, typer.Option("--end", help="YYYY-MM-DD")] = "2015-12-31",
+    lookback: Annotated[int, typer.Option("--lookback")] = 14,
+    horizon: Annotated[int, typer.Option("--horizon")] = 7,
+    epochs: Annotated[int, typer.Option("--epochs")] = 8,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+) -> None:
+    """Train the climate LSTM and write model + metrics.json."""
+    settings = get_settings()
+    configure_logging(settings.log_level, json=settings.log_json)
+    from pathlib import Path
+
+    from sentinel.training.train_lstm import (  # lazy (tensorflow)
+        DEFAULT_BBOX,
+        LstmTrainConfig,
+        train_lstm,
+    )
+
+    bbox = DEFAULT_BBOX
+    if region is not None:
+        try:
+            bbox = parse_bbox(region)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+
+    cfg = LstmTrainConfig(
+        fod_sqlite=Path(fod_sqlite),
+        output_dir=Path(output),
+        bbox=bbox,
+        cell_size=cell_size,
+        start=_parse_date(start, "start"),
+        end=_parse_date(end, "end"),
+        lookback=lookback,
+        horizon=horizon,
+        epochs=epochs,
+        seed=seed,
+    )
+    report = train_lstm(cfg)
+    typer.echo(json.dumps(report["test"], indent=2))
+
+
+@app.command("build-ensemble")
+def build_ensemble_command(
+    lstm_dir: Annotated[
+        str, typer.Option("--lstm-dir", help="LSTM output dir (with ensemble_inputs.npz)")
+    ],
+    cnn_checkpoint: Annotated[
+        str, typer.Option("--cnn-checkpoint", help="path to the CNN .pt checkpoint")
+    ],
+    output: Annotated[str, typer.Option("--output")] = "artifacts/ensemble",
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+) -> None:
+    """Fit + evaluate the CNN+LSTM ensemble and write metrics.json."""
+    settings = get_settings()
+    configure_logging(settings.log_level, json=settings.log_json)
+    from pathlib import Path
+
+    from sentinel.training.build_ensemble import (  # lazy (torch)
+        EnsembleConfig,
+        build_ensemble,
+    )
+
+    cfg = EnsembleConfig(
+        lstm_dir=Path(lstm_dir),
+        cnn_checkpoint=Path(cnn_checkpoint),
+        output_dir=Path(output),
+        seed=seed,
+    )
+    report = build_ensemble(cfg)
+    typer.echo(json.dumps(report["test"]["ensemble"], indent=2))
+
+
 def main() -> None:
     """Console-script entry point."""
     app()

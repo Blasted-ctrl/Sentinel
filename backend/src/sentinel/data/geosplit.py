@@ -62,24 +62,23 @@ def _first_fold(
     return indices[rest_local], indices[hold_local]
 
 
-def geospatial_split(
-    coords: Sequence[tuple[float, float]],
+def split_by_groups(
+    groups: Sequence[str],
     labels: Sequence[int],
     *,
-    cell_size: float = 0.5,
     val_frac: float = 0.15,
     test_frac: float = 0.15,
     seed: int = 42,
 ) -> GeoSplit:
-    """Split sample indices into train/val/test with no region crossing a split.
+    """Split indices given pre-computed region group keys (no region crosses a split).
 
     Raises:
         ValueError: if there are too few distinct regions to split without leakage.
     """
-    n = len(labels)
-    if n != len(coords):
-        raise ValueError("coords and labels must be the same length")
-    groups = assign_regions(coords, cell_size)
+    groups = list(groups)
+    n = len(groups)
+    if n != len(labels):
+        raise ValueError("groups and labels must be the same length")
     n_groups = len(set(groups))
     if n_groups < 3:
         raise ValueError(
@@ -108,6 +107,27 @@ def geospatial_split(
         val=sorted(val_idx.tolist()),
         test=sorted(test_idx.tolist()),
         groups=groups,
+    )
+
+
+def geospatial_split(
+    coords: Sequence[tuple[float, float]],
+    labels: Sequence[int],
+    *,
+    cell_size: float = 0.5,
+    val_frac: float = 0.15,
+    test_frac: float = 0.15,
+    seed: int = 42,
+) -> GeoSplit:
+    """Split sample indices into train/val/test with no region crossing a split.
+
+    Region keys are derived by snapping ``coords`` to a ``cell_size`` grid.
+    """
+    if len(labels) != len(coords):
+        raise ValueError("coords and labels must be the same length")
+    groups = assign_regions(coords, cell_size)
+    return split_by_groups(
+        groups, labels, val_frac=val_frac, test_frac=test_frac, seed=seed
     )
 
 
