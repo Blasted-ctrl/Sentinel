@@ -26,7 +26,15 @@ RUN uv sync --extra torch --extra tf --frozen
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
+# Run as a non-root user.
+RUN useradd --system --uid 1001 sentinel \
+    && chown -R sentinel:sentinel /app
+USER sentinel
+
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -fsS http://localhost:8000/health || exit 1
 
 # Default command runs the API; the worker/beat override this in compose.
 CMD ["uvicorn", "sentinel.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -288,7 +288,34 @@ DATABASE_URL=postgresql+psycopg://sentinel:sentinel@localhost:5432/sentinel \
 ```
 
 CI runs lint, type-check, and the full test suite (including the PostGIS integration
-tests against a service container) on every push and pull request.
+tests against a service container) on every push and pull request — for both the
+backend and the frontend.
+
+## Security
+
+- **No secrets in code.** Configuration is read from `.env` (only `.env.example`
+  is committed); the Kaggle token lives in `~/.kaggle`, never the repo.
+- **Input validation** on every boundary: bbox/date parsing, Pydantic settings,
+  cloud-cover bounds.
+- **No SQL injection surface** — all queries use SQLAlchemy's parameterized ORM;
+  no string-built SQL with user input.
+- **Least privilege containers** — backend and frontend images run as non-root
+  users with pinned, lockfile-driven dependencies (`uv.lock`, `pnpm-lock.yaml`).
+- **Restricted CORS** — the API only allows the configured `CORS_ORIGINS`, and
+  exposes read-only `GET` endpoints.
+
+## Demo & screenshots
+
+The dashboard is data-driven, so populate it first, then capture:
+
+```bash
+docker compose up -d                     # full stack
+cd backend && uv run sentinel seed-demo --score   # regions + real fused scores
+cd ../frontend && pnpm dev               # open http://localhost:3000
+```
+
+> Live demo URL and screenshots are added after deploying to Vercel + Render
+> (see **Deploy** above) — the configs are turnkey.
 
 ## Roadmap
 
@@ -297,7 +324,7 @@ tests against a service container) on every push and pull request.
 - [x] **Phase 3 — LSTM** on climate time-series (AUC **0.80**) + CNN/LSTM ensemble with honest domain-shift analysis.
 - [x] **Phase 4 — FastAPI** risk endpoint + Celery daily re-scoring + backend Dockerfile.
 - [x] **Phase 5 — Next.js** Leaflet risk-map dashboard + Vercel/Render deploy config.
-- [ ] **Phase 6 — Hardening + docs** with real measured metrics, screenshots, and a live demo.
+- [x] **Phase 6 — Hardening + docs**: expanded tests, non-root images, security pass, full README. *(Live demo URL + screenshots pending deploy.)*
 
 ## License
 

@@ -92,3 +92,50 @@ def test_get_or_create_region_is_idempotent(engine: Engine) -> None:
         session.commit()
         second = get_or_create_region(session, "idempotent", bbox)
         assert first.id == second.id
+
+
+def test_risk_scores_and_rescore(engine: Engine) -> None:
+    from datetime import date as _date
+
+    from sentinel.serving import repository
+    from sentinel.serving.scorer import RiskComponents
+    from sentinel.tasks.scoring import rescore_regions
+
+    session_factory = get_sessionmaker(engine)
+    with session_factory() as session:
+        region = get_or_create_region(
+            session, "score-region", BBox(-121.0, 38.0, -120.0, 39.0)
+        )
+        session.commit()
+
+        # Direct upsert + latest lookup.
+        repository.upsert_risk_score(
+            session, region.id, _date(2024, 8, 1), ensemble_score=0.7, lstm_score=0.8
+        )
+        session.commit()
+        latest = repository.latest_risk_score(session, region.id)
+        assert latest is not None and latest.ensemble_score == 0.7
+
+        # GeoJSON includes the region with its score.
+        fc = repository.regions_geojson(session)
+        props = [
+            f["properties"]
+            for f in fc["features"]
+            if f["properties"]["region_name"] == "score-region"
+        ]
+        assert props and props[0]["ensemble_score"] == 0.7
+
+        # The rescore task writes a score per region via an injected scorer.
+        class _FakeScorer:
+            model_version = "itest"
+
+            def score(self, key: str, bbox: BBox, day: _date) -> RiskComponents:
+                return RiskComponents(ensemble=0.42, cnn=0.4, lstm=0.5)
+
+        summary = rescore_regions(
+            session, _FakeScorer(), _date(2024, 8, 2), bbox_fn=lambda r: BBox(-1, -1, 1, 1)
+        )
+        session.commit()
+        assert summary["scored"] >= 1
+        refreshed = repository.get_risk_score(session, region.id, _date(2024, 8, 2))
+        assert refreshed is not None and refreshed.ensemble_score == 0.42
