@@ -110,3 +110,24 @@ def test_risk_geojson(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> No
     body = resp.json()
     assert body["type"] == "FeatureCollection"
     assert body["features"][0]["properties"]["ensemble_score"] == 0.72
+
+
+def test_risk_point(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentinel.serving.scorer import RiskComponents
+    from sentinel.tasks import scoring
+
+    fake = MagicMock()
+    fake.score.return_value = RiskComponents(ensemble=0.66, cnn=0.5, lstm=0.74)
+    monkeypatch.setattr(scoring, "get_scorer", lambda: fake)
+
+    resp = client.get("/risk/point", params={"lat": -33.8, "lon": 151.2})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ensemble_score"] == 0.66
+    assert body["lstm_score"] == 0.74
+    fake.score.assert_called_once()
+
+
+def test_risk_point_validates_coords(client: TestClient) -> None:
+    resp = client.get("/risk/point", params={"lat": 200, "lon": 0})
+    assert resp.status_code == 422

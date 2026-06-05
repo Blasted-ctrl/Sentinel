@@ -2,42 +2,51 @@
 
 import "leaflet/dist/leaflet.css";
 
-import L from "leaflet";
 import type { Layer, PathOptions } from "leaflet";
-import { useEffect } from "react";
-import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
+import {
+  CircleMarker,
+  GeoJSON,
+  MapContainer,
+  TileLayer,
+  Tooltip,
+  useMapEvents,
+} from "react-leaflet";
 
 import type { RegionCollection, RegionProps } from "@/lib/api";
 import { riskColor } from "@/lib/risk";
 
-function FitBounds({ data }: { data: RegionCollection }) {
-  const map = useMap();
-  useEffect(() => {
-    if (data.features.length === 0) return;
-    const layer = L.geoJSON(data as unknown as GeoJSON.GeoJsonObject);
-    const bounds = layer.getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [32, 32], maxZoom: 9 });
-    }
-  }, [data, map]);
+function ClickHandler({ onPick }: { onPick: (lat: number, lon: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
   return null;
+}
+
+export interface PickedPoint {
+  lat: number;
+  lon: number;
+  score: number | null;
 }
 
 interface Props {
   data: RegionCollection;
   selectedId: number | null;
+  picked: PickedPoint | null;
   onSelect: (id: number) => void;
+  onPick: (lat: number, lon: number) => void;
 }
 
-export default function MapView({ data, selectedId, onSelect }: Props) {
+export default function MapView({ data, selectedId, picked, onSelect, onPick }: Props) {
   const style = (feature?: GeoJSON.Feature): PathOptions => {
     const props = feature?.properties as RegionProps | undefined;
     const active = props?.region_id === selectedId;
     return {
       color: active ? "#9a3412" : "#ffffff",
-      weight: active ? 2.5 : 1,
+      weight: active ? 2.5 : 0.8,
       fillColor: riskColor(props?.ensemble_score ?? null),
-      fillOpacity: active ? 0.85 : 0.7,
+      fillOpacity: active ? 0.85 : 0.62,
     };
   };
 
@@ -49,15 +58,17 @@ export default function MapView({ data, selectedId, onSelect }: Props) {
 
   return (
     <MapContainer
-      center={[39, -121]}
-      zoom={6}
+      center={[25, 5]}
+      zoom={2}
+      minZoom={2}
+      worldCopyJump
       scrollWheelZoom
       style={{ height: "100%", width: "100%" }}
       preferCanvas
     >
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+        attribution="&copy; OpenStreetMap contributors &copy; CARTO"
         maxZoom={19}
       />
       <GeoJSON
@@ -66,7 +77,23 @@ export default function MapView({ data, selectedId, onSelect }: Props) {
         style={style}
         onEachFeature={onEachFeature}
       />
-      <FitBounds data={data} />
+      {picked && (
+        <CircleMarker
+          center={[picked.lat, picked.lon]}
+          radius={9}
+          pathOptions={{
+            color: "#1a1714",
+            weight: 2,
+            fillColor: riskColor(picked.score),
+            fillOpacity: 0.95,
+          }}
+        >
+          <Tooltip permanent direction="top" offset={[0, -8]}>
+            {picked.lat.toFixed(2)}, {picked.lon.toFixed(2)}
+          </Tooltip>
+        </CircleMarker>
+      )}
+      <ClickHandler onPick={onPick} />
     </MapContainer>
   );
 }

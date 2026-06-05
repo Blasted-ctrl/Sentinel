@@ -8,11 +8,13 @@ import {
   Flame,
   Layers,
   Loader2,
+  MapPin,
   Satellite,
   ThermometerSun,
 } from "lucide-react";
 
 import {
+  fetchPoint,
   fetchRegionsGeoJson,
   fetchRisk,
   type RegionCollection,
@@ -59,12 +61,25 @@ function ScoreBar({
   );
 }
 
+interface DetailView {
+  name: string;
+  ensemble: number | null;
+  cnn: number | null;
+  lstm: number | null;
+  loading: boolean;
+}
+
 export function Dashboard() {
   const [data, setData] = useState<RegionCollection | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [date, setDate] = useState<string>(todayISO());
   const [detail, setDetail] = useState<RiskScore | null>(null);
+
+  // Click-to-predict (any point on Earth).
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [pointResult, setPointResult] = useState<RiskScore | null>(null);
+  const [pointLoading, setPointLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -89,8 +104,9 @@ export function Dashboard() {
     return data.features.find((f) => f.properties.region_id === selectedId)?.properties ?? null;
   }, [data, selectedId]);
 
+  // Refresh the selected region's score when the region or date changes.
   useEffect(() => {
-    if (!selected) return;
+    if (!selected || coords) return;
     let active = true;
     fetchRisk(selected.region_name, date)
       .then((s) => active && setDetail(s))
@@ -98,12 +114,62 @@ export function Dashboard() {
     return () => {
       active = false;
     };
-  }, [selected, date]);
+  }, [selected, date, coords]);
 
-  const ensemble = detail?.ensemble_score ?? selected?.ensemble_score ?? null;
-  const cnn = detail?.cnn_score ?? selected?.cnn_score ?? null;
-  const lstm = detail?.lstm_score ?? selected?.lstm_score ?? null;
-  const band = riskBand(ensemble);
+  // Predict an arbitrary picked point (and re-predict when the date changes).
+  useEffect(() => {
+    if (!coords) return;
+    let active = true;
+    setPointLoading(true);
+    setPointResult(null);
+    fetchPoint(coords.lat, coords.lon, date)
+      .then((p) => {
+        if (!active) return;
+        setPointResult({
+          region_id: -1,
+          region_name: "",
+          date: p.date,
+          ensemble_score: p.ensemble_score,
+          cnn_score: p.cnn_score,
+          lstm_score: p.lstm_score,
+          model_version: null,
+          computed_at: null,
+        });
+      })
+      .catch(() => active && setPointResult(null))
+      .finally(() => active && setPointLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [coords, date]);
+
+  const selectRegion = (id: number) => {
+    setCoords(null);
+    setPointResult(null);
+    setSelectedId(id);
+  };
+  const pickPoint = (lat: number, lon: number) => {
+    setSelectedId(null);
+    setCoords({ lat, lon });
+  };
+
+  const view: DetailView | null = coords
+    ? {
+        name: `Point  ${coords.lat.toFixed(3)}, ${coords.lon.toFixed(3)}`,
+        ensemble: pointResult?.ensemble_score ?? null,
+        cnn: pointResult?.cnn_score ?? null,
+        lstm: pointResult?.lstm_score ?? null,
+        loading: pointLoading,
+      }
+    : selected
+      ? {
+          name: selected.region_name,
+          ensemble: detail?.ensemble_score ?? selected.ensemble_score,
+          cnn: detail?.cnn_score ?? selected.cnn_score,
+          lstm: detail?.lstm_score ?? selected.lstm_score,
+          loading: false,
+        }
+      : null;
 
   const sorted = useMemo(
     () =>
@@ -143,7 +209,13 @@ export function Dashboard() {
       <div className="main">
         <div className="map-wrap">
           {status === "ready" && data ? (
-            <MapView data={data} selectedId={selectedId} onSelect={setSelectedId} />
+            <MapView
+              data={data}
+              selectedId={selectedId}
+              picked={coords ? { ...coords, score: pointResult?.ensemble_score ?? null } : null}
+              onSelect={selectRegion}
+              onPick={pickPoint}
+            />
           ) : (
             <div className="empty" style={{ paddingTop: 80 }}>
               {status === "loading" ? "Loading regions…" : "Could not reach the API."}
@@ -159,42 +231,43 @@ export function Dashboard() {
               <span>Moderate</span>
               <span>Extreme</span>
             </div>
+            <div className="legend-hint">
+              <MapPin size={11} /> Click anywhere to predict
+            </div>
           </div>
         </div>
 
         <aside className="sidebar">
           <section className="detail-card">
-            {selected ? (
+            {view ? (
               <>
                 <div className="score-hero">
-                  <span className="score-num mono" style={{ color: riskColor(ensemble) }}>
-                    {formatScore(ensemble)}
+                  <span className="score-num mono" style={{ color: riskColor(view.ensemble) }}>
+                    {view.loading ? "··" : formatScore(view.ensemble)}
                   </span>
                   <span className="score-unit">/ 100</span>
                   <span
                     className="band-chip"
-                    style={{ background: riskColor(ensemble), marginLeft: "auto" }}
+                    style={{ background: riskColor(view.ensemble), marginLeft: "auto" }}
                   >
-                    {band}
+                    {view.loading ? "Scoring…" : riskBand(view.ensemble)}
                   </span>
                 </div>
-                <div className="region-name">{selected.region_name}</div>
+                <div className="region-name">{view.name}</div>
                 <div className="bar-label" style={{ marginTop: 4 }}>
                   <span>Ensemble · CNN imagery + LSTM climate</span>
                 </div>
-                <ScoreBar label="Ensemble" value={ensemble} icon={<Activity size={13} />} />
+                <ScoreBar label="Ensemble" value={view.ensemble} icon={<Activity size={13} />} />
                 <ScoreBar
                   label="Climate (LSTM)"
-                  value={lstm}
+                  value={view.lstm}
                   icon={<ThermometerSun size={13} />}
                 />
-                <ScoreBar label="Imagery (CNN)" value={cnn} icon={<Satellite size={13} />} />
+                <ScoreBar label="Imagery (CNN)" value={view.cnn} icon={<Satellite size={13} />} />
               </>
             ) : (
               <div className="empty">
-                {status === "ready"
-                  ? "No regions scored yet. Run the ingestion + scoring pipeline to populate the map."
-                  : "—"}
+                Select a region or click the map to predict wildfire risk anywhere.
               </div>
             )}
           </section>
@@ -212,7 +285,7 @@ export function Dashboard() {
                     key={p.region_id}
                     className="region-row"
                     data-active={p.region_id === selectedId}
-                    onClick={() => setSelectedId(p.region_id)}
+                    onClick={() => selectRegion(p.region_id)}
                   >
                     <span
                       className="region-dot"

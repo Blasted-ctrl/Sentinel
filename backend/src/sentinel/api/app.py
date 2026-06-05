@@ -98,6 +98,39 @@ def create_app() -> FastAPI:
         """Regions as a GeoJSON FeatureCollection with latest scores (for the map)."""
         return repository.regions_geojson(db)
 
+    @app.get("/risk/point", tags=["risk"])
+    def risk_point(
+        lat: Annotated[float, Query(ge=-90, le=90)],
+        lon: Annotated[float, Query(ge=-180, le=180)],
+        day: Annotated[date | None, Query(alias="date")] = None,
+        size: Annotated[float, Query(gt=0, le=5, description="cell size in degrees")] = 0.5,
+    ) -> dict[str, object]:
+        """Score an arbitrary point on demand (anywhere on Earth).
+
+        Loads the models on first use, then fuses live LSTM climate risk + CNN
+        imagery prior for a small cell around ``(lat, lon)``.
+        """
+        from sentinel.geo import BBox  # local import: keeps base import light
+        from sentinel.tasks.scoring import get_scorer
+
+        half = size / 2.0
+        bbox = BBox(
+            max(-180.0, lon - half),
+            max(-90.0, lat - half),
+            min(180.0, lon + half),
+            min(90.0, lat + half),
+        )
+        when = day or date.today()
+        components = get_scorer().score(f"point:{lat:.3f},{lon:.3f}", bbox, when)
+        return {
+            "lat": lat,
+            "lon": lon,
+            "date": when.isoformat(),
+            "ensemble_score": components.ensemble,
+            "cnn_score": components.cnn,
+            "lstm_score": components.lstm,
+        }
+
     return app
 
 

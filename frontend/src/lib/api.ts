@@ -51,3 +51,18 @@ export function fetchRisk(region: string, date?: string): Promise<RiskScore> {
   if (date) q.set("date", date);
   return getJson<RiskScore>(`/risk?${q.toString()}`);
 }
+
+export interface PointRisk {
+  lat: number;
+  lon: number;
+  date: string;
+  ensemble_score: number;
+  cnn_score: number | null;
+  lstm_score: number | null;
+}
+
+export function fetchPoint(lat: number, lon: number, date?: string): Promise<PointRisk> {
+  const q = new URLSearchParams({ lat: String(lat), lon: String(lon) });
+  if (date) q.set("date", date);
+  return getJson<PointRisk>(`/risk/point?${q.toString()}`);
+}
