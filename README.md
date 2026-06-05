@@ -85,8 +85,11 @@ sentinel/
       ├─ db/        # PostGIS ORM models + schema bootstrap
       ├─ ingest/    # FIRMS, Open-Meteo, STAC clients + pipeline
       ├─ data/      # dataset loading + leakage-safe geospatial splitting
-      ├─ models/    # ResNet CNN (transfer learning)
-      ├─ training/  # training loop, metrics, deterministic seeding
+      ├─ models/    # ResNet CNN, Keras LSTM, ensemble, inference
+      ├─ training/  # training loops, metrics, deterministic seeding
+      ├─ serving/   # risk repository + live scorer
+      ├─ api/       # FastAPI app (risk endpoints)
+      ├─ tasks/     # Celery app + daily re-scoring
       └─ cli.py     # `sentinel` command-line entry point
 ```
 
@@ -219,6 +222,28 @@ risk**, fit on validation and evaluated on held-out test regions.
 climate signal dominates; the imagery prior adds little on this evaluation. The
 ensemble plumbing is real and ready for a same-domain imagery model.
 
+## API
+
+A lightweight FastAPI app serves the scores that the Celery worker computes and
+stores in PostGIS (the web process stays free of heavy model loading).
+
+```bash
+docker compose up -d                    # db, redis, minio, api, worker, beat
+# or locally:
+cd backend && uv run uvicorn sentinel.api.app:app --reload
+```
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /health` | liveness + version |
+| `GET /regions` | tracked regions |
+| `GET /risk?region=<id\|name>&date=<YYYY-MM-DD>` | fused risk + component breakdown (latest if no date) |
+| `GET /risk/latest` | latest score per region (feeds the map) |
+
+A Celery **beat** schedule re-scores every tracked region daily at 06:00 UTC;
+each score fuses the live LSTM climate risk with the CNN imagery prior via the
+ensemble meta-model and upserts it into the `risk_scores` table.
+
 ## Development
 
 ```bash
@@ -238,7 +263,7 @@ tests against a service container) on every push and pull request.
 - [x] **Phase 1 — Ingestion + PostGIS schema.** FIRMS/weather/imagery clients, geo schema, CLI, CI.
 - [x] **Phase 2 — CNN** on satellite imagery, stratified geospatial split, **98.9% recall** on held-out regions.
 - [x] **Phase 3 — LSTM** on climate time-series (AUC **0.80**) + CNN/LSTM ensemble with honest domain-shift analysis.
-- [ ] **Phase 4 — FastAPI** risk endpoint + Celery scheduled re-scoring.
+- [x] **Phase 4 — FastAPI** risk endpoint + Celery daily re-scoring + backend Dockerfile.
 - [ ] **Phase 5 — Next.js** risk-map dashboard + deployment.
 - [ ] **Phase 6 — Hardening + docs** with real measured metrics and a live demo.
 

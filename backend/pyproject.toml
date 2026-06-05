@@ -25,6 +25,10 @@ dependencies = [
     "scikit-learn>=1.5",
     "pillow>=10.4",
     "kagglehub>=0.3.4",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "celery[redis]>=5.4",
+    "redis>=5.2",
 ]
 
 [project.optional-dependencies]
@@ -101,18 +105,22 @@ module = [
     "tensorflow.*",
     "keras.*",
     "joblib.*",
+    "celery.*",
 ]
 ignore_missing_imports = true
 
-# ML modules lean on torch/torchvision/sklearn whose stubs are incomplete;
-# relax the strictest checks here while keeping the rest of the codebase strict.
+# ML / serving modules lean on torch/tf/sklearn/celery whose stubs are
+# incomplete; relax the strictest checks here while keeping the rest strict.
 [[tool.mypy.overrides]]
 module = [
     "sentinel.data.*",
     "sentinel.models.*",
     "sentinel.training.*",
+    "sentinel.serving.*",
+    "sentinel.tasks.*",
 ]
 disallow_untyped_calls = false
+disallow_untyped_decorators = false
 warn_return_any = false
 
 [tool.pytest.ini_options]

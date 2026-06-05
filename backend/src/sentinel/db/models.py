@@ -58,6 +58,9 @@ class Region(Base):
     satellite_tiles: Mapped[list[SatelliteTile]] = relationship(
         back_populates="region", cascade="all, delete-orphan"
     )
+    risk_scores: Mapped[list[RiskScore]] = relationship(
+        back_populates="region", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"<Region id={self.id} name={self.name!r}>"
@@ -172,3 +175,30 @@ class SatelliteTile(Base):
     )
 
     region: Mapped[Region | None] = relationship(back_populates="satellite_tiles")
+
+
+class RiskScore(Base):
+    """A fused wildfire-risk score for a region on a given day."""
+
+    __tablename__ = "risk_scores"
+    __table_args__ = (
+        UniqueConstraint("region_id", "date", name="uq_risk_region_date"),
+        Index("ix_risk_region_date", "region_id", "date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    region_id: Mapped[int] = mapped_column(
+        ForeignKey("regions.id", ondelete="CASCADE"), nullable=False
+    )
+    date: Mapped[date_type] = mapped_column(Date, nullable=False)
+
+    ensemble_score: Mapped[float] = mapped_column(Float, nullable=False)
+    cnn_score: Mapped[float | None] = mapped_column(Float)
+    lstm_score: Mapped[float | None] = mapped_column(Float)
+    model_version: Mapped[str | None] = mapped_column(String(64))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    region: Mapped[Region] = relationship(back_populates="risk_scores")

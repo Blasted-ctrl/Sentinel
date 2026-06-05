@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.git/
+tests/
+# Large artifacts (mounted as a volume for the worker instead of baked in).
+metrics/
+artifacts/
+data/
+*.pt
+*.keras
+*.npz
+*.joblib

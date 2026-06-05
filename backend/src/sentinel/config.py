@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     stac_collection: str = "sentinel-2-l2a"
     stac_max_cloud_cover: int = Field(default=30, ge=0, le=100)
 
+    # --- Model artifacts (used by the Celery scorer) ---
+    cnn_checkpoint: str = "metrics/cnn/cnn_resnet18.pt"
+    lstm_dir: str = "metrics/lstm"
+    ensemble_path: str = "metrics/ensemble/ensemble.joblib"
+
+    # --- API ---
+    cors_origins: str = "http://localhost:3000"
+
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = False
