@@ -2,43 +2,55 @@
 
 import "leaflet/dist/leaflet.css";
 
-import type { Layer, PathOptions } from "leaflet";
-import {
-  CircleMarker,
-  GeoJSON,
-  MapContainer,
-  TileLayer,
-  Tooltip,
-  useMapEvents,
-} from "react-leaflet";
+import L from "leaflet";
+import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet";
+import { Marker, GeoJSON, MapContainer, TileLayer, useMapEvents } from "react-leaflet";
 
 import type { RegionCollection, RegionProps } from "@/lib/api";
-import { riskColor } from "@/lib/risk";
+import { formatScore, riskColor } from "@/lib/risk";
+
+export interface MapMark {
+  id: number;
+  lat: number;
+  lon: number;
+  score: number | null;
+  loading: boolean;
+}
+
+function markIcon(mark: MapMark): L.DivIcon {
+  const color = riskColor(mark.score);
+  const html = mark.loading
+    ? `<div class="sm-wrap sm-loading"><div class="sm-pin" style="--c:${color}"></div></div>`
+    : `<div class="sm-wrap">
+         <div class="sm-label" style="--c:${color}">${formatScore(mark.score)}</div>
+         <div class="sm-stem" style="--c:${color}"></div>
+         <div class="sm-pin" style="--c:${color}"></div>
+       </div>`;
+  return L.divIcon({
+    html,
+    className: "sm-icon",
+    iconSize: [96, 58],
+    iconAnchor: [48, 58],
+  });
+}
 
 function ClickHandler({ onPick }: { onPick: (lat: number, lon: number) => void }) {
   useMapEvents({
-    click(e) {
+    click(e: LeafletMouseEvent) {
       onPick(e.latlng.lat, e.latlng.lng);
     },
   });
   return null;
 }
 
-export interface PickedPoint {
-  lat: number;
-  lon: number;
-  score: number | null;
-}
-
 interface Props {
   data: RegionCollection;
   selectedId: number | null;
-  picked: PickedPoint | null;
-  onSelect: (id: number) => void;
+  marks: MapMark[];
   onPick: (lat: number, lon: number) => void;
 }
 
-export default function MapView({ data, selectedId, picked, onSelect, onPick }: Props) {
+export default function MapView({ data, selectedId, marks, onPick }: Props) {
   const style = (feature?: GeoJSON.Feature): PathOptions => {
     const props = feature?.properties as RegionProps | undefined;
     const active = props?.region_id === selectedId;
@@ -46,14 +58,14 @@ export default function MapView({ data, selectedId, picked, onSelect, onPick }: 
       color: active ? "#9a3412" : "#ffffff",
       weight: active ? 2.5 : 0.8,
       fillColor: riskColor(props?.ensemble_score ?? null),
-      fillOpacity: active ? 0.85 : 0.62,
+      fillOpacity: active ? 0.85 : 0.6,
     };
   };
 
   const onEachFeature = (feature: GeoJSON.Feature, layer: Layer) => {
     const props = feature.properties as RegionProps;
-    layer.on("click", () => onSelect(props.region_id));
     layer.bindTooltip(props.region_name, { sticky: true, direction: "top" });
+    layer.on("click", (e: LeafletMouseEvent) => onPick(e.latlng.lat, e.latlng.lng));
   };
 
   return (
@@ -77,22 +89,9 @@ export default function MapView({ data, selectedId, picked, onSelect, onPick }: 
         style={style}
         onEachFeature={onEachFeature}
       />
-      {picked && (
-        <CircleMarker
-          center={[picked.lat, picked.lon]}
-          radius={9}
-          pathOptions={{
-            color: "#1a1714",
-            weight: 2,
-            fillColor: riskColor(picked.score),
-            fillOpacity: 0.95,
-          }}
-        >
-          <Tooltip permanent direction="top" offset={[0, -8]}>
-            {picked.lat.toFixed(2)}, {picked.lon.toFixed(2)}
-          </Tooltip>
-        </CircleMarker>
-      )}
+      {marks.map((m) => (
+        <Marker key={m.id} position={[m.lat, m.lon]} icon={markIcon(m)} interactive={false} />
+      ))}
       <ClickHandler onPick={onPick} />
     </MapContainer>
   );

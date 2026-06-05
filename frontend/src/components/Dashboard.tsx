@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   CalendarDays,
@@ -21,6 +21,7 @@ import {
   type RegionProps,
   type RiskScore,
 } from "@/lib/api";
+import type { MapMark } from "@/components/MapView";
 import { formatScore, riskBand, riskColor } from "@/lib/risk";
 
 const MapView = dynamic(() => import("@/components/MapView"), {
@@ -28,8 +29,28 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   loading: () => <div className="empty">Loading map…</div>,
 });
 
+const MARK_TTL_MS = 10_000;
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+interface Mark {
+  id: number;
+  lat: number;
+  lon: number;
+  ensemble: number | null;
+  cnn: number | null;
+  lstm: number | null;
+  loading: boolean;
+}
+
+interface DetailView {
+  name: string;
+  ensemble: number | null;
+  cnn: number | null;
+  lstm: number | null;
+  loading: boolean;
 }
 
 function ScoreBar({
@@ -52,21 +73,10 @@ function ScoreBar({
         <span className="mono">{value === null ? "—" : `${pct}`}</span>
       </div>
       <div className="bar-track">
-        <div
-          className="bar-fill"
-          style={{ width: `${pct}%`, background: riskColor(value) }}
-        />
+        <div className="bar-fill" style={{ width: `${pct}%`, background: riskColor(value) }} />
       </div>
     </div>
   );
-}
-
-interface DetailView {
-  name: string;
-  ensemble: number | null;
-  cnn: number | null;
-  lstm: number | null;
-  loading: boolean;
 }
 
 export function Dashboard() {
@@ -75,11 +85,8 @@ export function Dashboard() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [date, setDate] = useState<string>(todayISO());
   const [detail, setDetail] = useState<RiskScore | null>(null);
-
-  // Click-to-predict (any point on Earth).
-  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [pointResult, setPointResult] = useState<RiskScore | null>(null);
-  const [pointLoading, setPointLoading] = useState(false);
+  const [marks, setMarks] = useState<Mark[]>([]);
+  const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     let active = true;
@@ -99,14 +106,22 @@ export function Dashboard() {
     };
   }, []);
 
+  // Clear any pending mark-removal timers on unmount.
+  useEffect(() => {
+    const map = timers.current;
+    return () => {
+      map.forEach((t) => clearTimeout(t));
+      map.clear();
+    };
+  }, []);
+
   const selected: RegionProps | null = useMemo(() => {
     if (!data || selectedId === null) return null;
     return data.features.find((f) => f.properties.region_id === selectedId)?.properties ?? null;
   }, [data, selectedId]);
 
-  // Refresh the selected region's score when the region or date changes.
   useEffect(() => {
-    if (!selected || coords) return;
+    if (!selected) return;
     let active = true;
     fetchRisk(selected.region_name, date)
       .then((s) => active && setDetail(s))
@@ -114,52 +129,52 @@ export function Dashboard() {
     return () => {
       active = false;
     };
-  }, [selected, date, coords]);
+  }, [selected, date]);
 
-  // Predict an arbitrary picked point (and re-predict when the date changes).
-  useEffect(() => {
-    if (!coords) return;
-    let active = true;
-    setPointLoading(true);
-    setPointResult(null);
-    fetchPoint(coords.lat, coords.lon, date)
-      .then((p) => {
-        if (!active) return;
-        setPointResult({
-          region_id: -1,
-          region_name: "",
-          date: p.date,
-          ensemble_score: p.ensemble_score,
-          cnn_score: p.cnn_score,
-          lstm_score: p.lstm_score,
-          model_version: null,
-          computed_at: null,
-        });
-      })
-      .catch(() => active && setPointResult(null))
-      .finally(() => active && setPointLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [coords, date]);
-
-  const selectRegion = (id: number) => {
-    setCoords(null);
-    setPointResult(null);
-    setSelectedId(id);
-  };
   const pickPoint = (lat: number, lon: number) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
     setSelectedId(null);
-    setCoords({ lat, lon });
+    setMarks((m) => [
+      ...m,
+      { id, lat, lon, ensemble: null, cnn: null, lstm: null, loading: true },
+    ]);
+    fetchPoint(lat, lon, date)
+      .then((p) =>
+        setMarks((m) =>
+          m.map((x) =>
+            x.id === id
+              ? {
+                  ...x,
+                  ensemble: p.ensemble_score,
+                  cnn: p.cnn_score,
+                  lstm: p.lstm_score,
+                  loading: false,
+                }
+              : x,
+          ),
+        ),
+      )
+      .catch(() =>
+        setMarks((m) => m.map((x) => (x.id === id ? { ...x, loading: false } : x))),
+      )
+      .finally(() => {
+        const t = setTimeout(() => {
+          setMarks((m) => m.filter((x) => x.id !== id));
+          timers.current.delete(id);
+        }, MARK_TTL_MS);
+        timers.current.set(id, t);
+      });
   };
 
-  const view: DetailView | null = coords
+  const activeMark = marks.length > 0 ? marks[marks.length - 1]! : null;
+
+  const view: DetailView | null = activeMark
     ? {
-        name: `Point  ${coords.lat.toFixed(3)}, ${coords.lon.toFixed(3)}`,
-        ensemble: pointResult?.ensemble_score ?? null,
-        cnn: pointResult?.cnn_score ?? null,
-        lstm: pointResult?.lstm_score ?? null,
-        loading: pointLoading,
+        name: `Point  ${activeMark.lat.toFixed(3)}, ${activeMark.lon.toFixed(3)}`,
+        ensemble: activeMark.ensemble,
+        cnn: activeMark.cnn,
+        lstm: activeMark.lstm,
+        loading: activeMark.loading,
       }
     : selected
       ? {
@@ -170,6 +185,14 @@ export function Dashboard() {
           loading: false,
         }
       : null;
+
+  const mapMarks: MapMark[] = marks.map((m) => ({
+    id: m.id,
+    lat: m.lat,
+    lon: m.lon,
+    score: m.ensemble,
+    loading: m.loading,
+  }));
 
   const sorted = useMemo(
     () =>
@@ -212,8 +235,7 @@ export function Dashboard() {
             <MapView
               data={data}
               selectedId={selectedId}
-              picked={coords ? { ...coords, score: pointResult?.ensemble_score ?? null } : null}
-              onSelect={selectRegion}
+              marks={mapMarks}
               onPick={pickPoint}
             />
           ) : (
@@ -232,7 +254,7 @@ export function Dashboard() {
               <span>Extreme</span>
             </div>
             <div className="legend-hint">
-              <MapPin size={11} /> Click anywhere to predict
+              <MapPin size={11} /> Click anywhere to drop a risk pin
             </div>
           </div>
         </div>
@@ -285,7 +307,9 @@ export function Dashboard() {
                     key={p.region_id}
                     className="region-row"
                     data-active={p.region_id === selectedId}
-                    onClick={() => selectRegion(p.region_id)}
+                    onClick={() => {
+                      setSelectedId(p.region_id);
+                    }}
                   >
                     <span
                       className="region-dot"
