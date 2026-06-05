@@ -1,0 +1,18 @@
+# Normalise line endings to LF in the repository (important for Docker/CI Linux).
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pt binary
+*.pth binary
+*.onnx binary
+*.h5 binary
+*.keras binary
+
+# Generated lockfiles: keep but mark as such for review tooling.
+uv.lock linguist-generated=true
+pnpm-lock.yaml linguist-generated=true

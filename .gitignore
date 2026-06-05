@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# uv
+# (uv.lock IS committed for reproducibility)
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.pnpm-store/
+*.tsbuildinfo
+
+# ML artifacts (large; tracked via S3, not git)
+*.pt
+*.pth
+*.onnx
+*.h5
+*.keras
+artifacts/
+data/
+!data/.gitkeep
+
+# Environment — never commit real secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker / logs
+*.log
