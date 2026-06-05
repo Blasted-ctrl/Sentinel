@@ -1,0 +1,169 @@
+{
+  "model": "resnet18-transfer",
+  "task": "wildfire-tile-classification",
+  "generated_at": "2026-06-05T02:51:24.675260+00:00",
+  "seed": 42,
+  "dataset": {
+    "root": "C:\\Users\\kings\\.cache\\kagglehub\\datasets\\abdelghaniaaba\\wildfire-prediction-dataset\\versions\\1",
+    "n_total": 5000,
+    "positives": 2500,
+    "negatives": 2500,
+    "regions": {
+      "train": 289,
+      "val": 57,
+      "test": 56,
+      "total": 402
+    }
+  },
+  "split": {
+    "sizes": {
+      "train": 3528,
+      "val": 768,
+      "test": 704
+    },
+    "positive_rate": {
+      "train": 0.5062,
+      "val": 0.4648,
+      "test": 0.5071
+    },
+    "geospatial": true,
+    "cell_size_deg": 0.5,
+    "region_leakage": false
+  },
+  "config": {
+    "data_root": "C:\\Users\\kings\\.cache\\kagglehub\\datasets\\abdelghaniaaba\\wildfire-prediction-dataset\\versions\\1",
+    "output_dir": "metrics\\cnn",
+    "image_size": 96,
+    "batch_size": 64,
+    "epochs": 6,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "limit": 5000,
+    "cell_size": 0.5,
+    "val_frac": 0.15,
+    "test_frac": 0.15,
+    "seed": 42,
+    "pretrained": true,
+    "unfreeze_layer4": true,
+    "num_workers": 0,
+    "device": "cpu",
+    "threshold": 0.5,
+    "select_metric": "recall",
+    "model_filename": "cnn_resnet18.pt",
+    "metrics_filename": "metrics.json"
+  },
+  "val_best": {
+    "accuracy": 0.9049479166666666,
+    "precision": 0.8446601941747572,
+    "recall": 0.9747899159663865,
+    "f1": 0.9050715214564369,
+    "auc": 0.9734915864155882,
+    "false_alarm_rate": 0.15571776155717762,
+    "threshold": 0.5,
+    "support_positive": 357,
+    "support_negative": 411
+  },
+  "test": {
+    "accuracy": 0.9147727272727273,
+    "precision": 0.863080684596577,
+    "recall": 0.988795518207283,
+    "f1": 0.9216710182767625,
+    "auc": 0.980949151995092,
+    "false_alarm_rate": 0.16138328530259366,
+    "threshold": 0.5,
+    "support_positive": 357,
+    "support_negative": 347
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.22847,
+      "val": {
+        "accuracy": 0.8932291666666666,
+        "precision": 0.8516624040920716,
+        "recall": 0.9327731092436975,
+        "f1": 0.8903743315508021,
+        "auc": 0.9596495532519577,
+        "false_alarm_rate": 0.1411192214111922,
+        "threshold": 0.5,
+        "support_positive": 357,
+        "support_negative": 411
+      }
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.13398,
+      "val": {
+        "accuracy": 0.9270833333333334,
+        "precision": 0.8929503916449086,
+        "recall": 0.957983193277311,
+        "f1": 0.9243243243243243,
+        "auc": 0.974994377312969,
+        "false_alarm_rate": 0.09975669099756691,
+        "threshold": 0.5,
+        "support_positive": 357,
+        "support_negative": 411
+      }
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.11433,
+      "val": {
+        "accuracy": 0.90625,
+        "precision": 0.8501228501228502,
+        "recall": 0.969187675070028,
+        "f1": 0.9057591623036649,
+        "auc": 0.9741697165484198,
+        "false_alarm_rate": 0.14841849148418493,
+        "threshold": 0.5,
+        "support_positive": 357,
+        "support_negative": 411
+      }
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.08993,
+      "val": {
+        "accuracy": 0.9114583333333334,
+        "precision": 0.8603491271820449,
+        "recall": 0.9663865546218487,
+        "f1": 0.9102902374670184,
+        "auc": 0.9769878754421477,
+        "false_alarm_rate": 0.1362530413625304,
+        "threshold": 0.5,
+        "support_positive": 357,
+        "support_negative": 411
+      }
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.13603,
+      "val": {
+        "accuracy": 0.9049479166666666,
+        "precision": 0.8446601941747572,
+        "recall": 0.9747899159663865,
+        "f1": 0.9050715214564369,
+        "auc": 0.9734915864155882,
+        "false_alarm_rate": 0.15571776155717762,
+        "threshold": 0.5,
+        "support_positive": 357,
+        "support_negative": 411
+      }
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.10655,
+      "val": {
+        "accuracy": 0.9270833333333334,
+        "precision": 0.9013333333333333,
+        "recall": 0.9467787114845938,
+        "f1": 0.9234972677595629,
+        "auc": 0.9770389907787933,
+        "false_alarm_rate": 0.09002433090024331,
+        "threshold": 0.5,
+        "support_positive": 357,
+        "support_negative": 411
+      }
+    }
+  ]
+}

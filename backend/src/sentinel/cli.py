@@ -110,6 +110,82 @@ def ingest(
     typer.echo(json.dumps(summary.as_dict(), indent=2))
 
 
+@app.command("prepare-data")
+def prepare_data(
+    source: Annotated[
+        str, typer.Option("--source", help="kaggle | zip | local")
+    ] = "kaggle",
+    path: Annotated[
+        str | None, typer.Option("--path", help="zip file or folder (zip/local sources)")
+    ] = None,
+    dataset: Annotated[
+        str, typer.Option("--dataset", help="Kaggle dataset slug")
+    ] = "abdelghaniaaba/wildfire-prediction-dataset",
+    dest: Annotated[
+        str, typer.Option("--dest", help="extraction target for zip source")
+    ] = "data/wildfire",
+) -> None:
+    """Download / locate the wildfire image dataset and print its root path."""
+    settings = get_settings()
+    configure_logging(settings.log_level, json=settings.log_json)
+    from sentinel.data.download import resolve_wildfire_dataset  # lazy (heavy deps)
+
+    root = resolve_wildfire_dataset(source, path=path, dataset=dataset, dest=dest)
+    typer.echo(str(root))
+
+
+@app.command("train-cnn")
+def train_cnn_command(
+    data_root: Annotated[
+        str, typer.Option("--data-root", help="dataset root (from prepare-data)")
+    ],
+    output: Annotated[
+        str, typer.Option("--output", help="directory for model + metrics.json")
+    ] = "artifacts/cnn",
+    epochs: Annotated[int, typer.Option("--epochs")] = 5,
+    batch_size: Annotated[int, typer.Option("--batch-size")] = 32,
+    image_size: Annotated[int, typer.Option("--image-size")] = 96,
+    limit: Annotated[
+        int | None, typer.Option("--limit", help="cap total tiles (balanced) for CPU runs")
+    ] = None,
+    cell_size: Annotated[
+        float, typer.Option("--cell-size", help="geospatial split grid size in degrees")
+    ] = 0.5,
+    lr: Annotated[float, typer.Option("--lr")] = 1e-3,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+    pretrained: Annotated[
+        bool, typer.Option("--pretrained/--no-pretrained")
+    ] = True,
+    unfreeze_layer4: Annotated[
+        bool, typer.Option("--unfreeze-layer4/--freeze-layer4")
+    ] = True,
+    device: Annotated[str, typer.Option("--device", help="cpu | cuda")] = "cpu",
+) -> None:
+    """Train the satellite-imagery CNN and write model + metrics.json."""
+    settings = get_settings()
+    configure_logging(settings.log_level, json=settings.log_json)
+    from pathlib import Path
+
+    from sentinel.training.train_cnn import TrainConfig, train_cnn  # lazy (torch)
+
+    cfg = TrainConfig(
+        data_root=Path(data_root),
+        output_dir=Path(output),
+        epochs=epochs,
+        batch_size=batch_size,
+        image_size=image_size,
+        limit=limit,
+        cell_size=cell_size,
+        lr=lr,
+        seed=seed,
+        pretrained=pretrained,
+        unfreeze_layer4=unfreeze_layer4,
+        device=device,
+    )
+    report = train_cnn(cfg)
+    typer.echo(json.dumps(report["test"], indent=2))
+
+
 def main() -> None:
     """Console-script entry point."""
     app()

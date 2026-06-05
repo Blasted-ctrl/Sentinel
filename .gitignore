@@ -25,15 +25,18 @@ out/
 .pnpm-store/
 *.tsbuildinfo
 
-# ML artifacts (large; tracked via S3, not git)
+# ML model weights (large; tracked via S3, not git). metrics.json IS committed.
 *.pt
 *.pth
 *.onnx
 *.h5
 *.keras
-artifacts/
-data/
-!data/.gitkeep
+# Downloaded datasets + training artifacts (scoped so the src/sentinel/data
+# package is NOT ignored).
+/data/
+/artifacts/
+/backend/data/
+/backend/artifacts/
 
 # Environment — never commit real secrets
 .env

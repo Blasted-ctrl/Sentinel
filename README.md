@@ -84,6 +84,9 @@ sentinel/
       ├─ config.py · logging.py · geo.py
       ├─ db/        # PostGIS ORM models + schema bootstrap
       ├─ ingest/    # FIRMS, Open-Meteo, STAC clients + pipeline
+      ├─ data/      # dataset loading + leakage-safe geospatial splitting
+      ├─ models/    # ResNet CNN (transfer learning)
+      ├─ training/  # training loop, metrics, deterministic seeding
       └─ cli.py     # `sentinel` command-line entry point
 ```
 
@@ -102,7 +105,7 @@ cp .env.example .env        # then fill in FIRMS_MAP_KEY (free) — see below
 
 ```bash
 cd backend
-uv sync --extra dev         # provisions Python 3.12 + all dependencies
+uv sync --extra dev --extra torch   # Python 3.12 + deps + PyTorch (CPU)
 ```
 
 ### 3. Create the schema and ingest data
@@ -127,6 +130,42 @@ everything to PostGIS. It prints a summary of rows inserted.
 | [Open-Meteo Archive](https://open-meteo.com/en/docs/historical-weather-api) | Daily temperature, precip, wind, evapotranspiration | None |
 | [Sentinel-2 L2A via Earth Search](https://earth-search.aws.element84.com/v1) | Satellite imagery (STAC) | None |
 
+### 4. Train the wildfire CNN
+
+```bash
+# Fetch the labelled satellite tiles (needs a free Kaggle token in ~/.kaggle).
+DATA=$(uv run sentinel prepare-data --source kaggle)
+
+# Transfer-learn a ResNet18 with a leakage-safe geospatial split.
+uv run sentinel train-cnn --data-root "$DATA" \
+    --output metrics/cnn --limit 5000 --image-size 96 --epochs 6
+```
+
+This pools the tiles, re-splits them **geospatially** (no location appears in two
+splits), fine-tunes a pretrained ResNet18 with class-weighted loss, evaluates on a
+held-out test set, and writes `metrics/cnn/metrics.json` — the single source of
+truth for the numbers below.
+
+## Measured results
+
+> Real numbers from `metrics/cnn/metrics.json`, evaluated on a **geospatially
+> held-out** test set (704 tiles, 56 regions never seen in training — no region
+> leakage). Reproduce with the command above (seed 42).
+
+### Phase 2 — CNN (satellite imagery → fire / no-fire)
+
+| Metric | Test | Notes |
+| --- | --- | --- |
+| **Recall** | **0.989** | headline — missing a fire is the costly error |
+| Precision | 0.863 | |
+| F1 | 0.922 | |
+| ROC-AUC | 0.981 | |
+| Accuracy | 0.915 | |
+| False-alarm rate | 0.161 | FP / (FP + TN) |
+
+ResNet18 transfer learning · 5,000 balanced tiles · 402 grid-cell regions
+(289 / 57 / 56 train / val / test) · class-weighted loss · CPU, 6 epochs, seed 42.
+
 ## Development
 
 ```bash
@@ -144,7 +183,7 @@ tests against a service container) on every push and pull request.
 ## Roadmap
 
 - [x] **Phase 1 — Ingestion + PostGIS schema.** FIRMS/weather/imagery clients, geo schema, CLI, CI.
-- [ ] **Phase 2 — CNN** on satellite imagery with stratified geospatial cross-validation.
+- [x] **Phase 2 — CNN** on satellite imagery, stratified geospatial split, **98.9% recall** on held-out regions.
 - [ ] **Phase 3 — LSTM** on climate time-series + CNN/LSTM ensemble.
 - [ ] **Phase 4 — FastAPI** risk endpoint + Celery scheduled re-scoring.
 - [ ] **Phase 5 — Next.js** risk-map dashboard + deployment.
