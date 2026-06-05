@@ -1,12 +1,12 @@
 {
   "model": "keras-lstm",
   "task": "climate-sequence-ignition-risk",
-  "generated_at": "2026-06-05T03:31:30.873549+00:00",
+  "generated_at": "2026-06-05T06:00:57.797143+00:00",
   "seed": 42,
   "dataset": {
-    "n_total": 91182,
-    "positives": 41913,
-    "negatives": 49269,
+    "n_total": 72200,
+    "positives": 51008,
+    "negatives": 21192,
     "features": [
       "temperature_max",
       "temperature_min",
@@ -19,39 +19,39 @@
     "lookback": 14,
     "horizon_days": 7,
     "regions": {
-      "train": 30,
-      "val": 6,
-      "test": 6,
-      "total": 42
+      "train": 142,
+      "val": 29,
+      "test": 29,
+      "total": 200
     }
   },
   "split": {
     "sizes": {
-      "train": 65130,
-      "val": 13026,
-      "test": 13026
+      "train": 51262,
+      "val": 10469,
+      "test": 10469
     },
     "positive_rate": {
-      "train": 0.4565,
-      "val": 0.4703,
-      "test": 0.465
+      "train": 0.7071,
+      "val": 0.7048,
+      "test": 0.7053
     },
     "geospatial": true,
-    "cell_size_deg": 1.0,
+    "cell_size_deg": 2.0,
     "region_leakage": false
   },
   "config": {
-    "fod_sqlite": "C:\\Users\\kings\\.cache\\kagglehub\\datasets\\rtatman\\188-million-us-wildfires\\versions\\2\\FPA_FOD_20170508.sqlite",
+    "fod_sqlite": "global",
     "output_dir": "C:\\Users\\kings\\Sentinel\\backend\\metrics\\lstm",
     "bbox": [
-      -124.0,
-      36.0,
-      -117.0,
-      42.0
+      -180.0,
+      -60.0,
+      180.0,
+      75.0
     ],
-    "cell_size": 1.0,
-    "start": "2010-01-01",
-    "end": "2015-12-31",
+    "cell_size": 2.0,
+    "start": "2020-05-17",
+    "end": "2021-06-01",
     "lookback": 14,
     "horizon": 7,
     "epochs": 8,
@@ -66,47 +66,47 @@
     "metrics_filename": "metrics.json"
   },
   "val": {
-    "accuracy": 0.762551819438047,
-    "precision": 0.7311385459533608,
-    "recall": 0.7830558276199804,
-    "f1": 0.7562071411681248,
-    "auc": 0.8574574751475061,
-    "false_alarm_rate": 0.25565217391304346,
+    "accuracy": 0.7594803706180151,
+    "precision": 0.8421793608334507,
+    "recall": 0.8106789537877761,
+    "f1": 0.82612898770888,
+    "auc": 0.7748037485894327,
+    "false_alarm_rate": 0.3627831715210356,
     "threshold": 0.5,
-    "support_positive": 6126,
-    "support_negative": 6900
+    "support_positive": 7379,
+    "support_negative": 3090
   },
   "test": {
-    "accuracy": 0.7241670505143559,
-    "precision": 0.692922016911995,
-    "recall": 0.7305596830113917,
-    "f1": 0.7112432693080447,
-    "auc": 0.8003522190408416,
-    "false_alarm_rate": 0.281389008466064,
+    "accuracy": 0.7935810488107746,
+    "precision": 0.8583779333058872,
+    "recall": 0.8471018418201517,
+    "f1": 0.852702610592325,
+    "auc": 0.8542342196803813,
+    "false_alarm_rate": 0.3345218800648298,
     "threshold": 0.5,
-    "support_positive": 6057,
-    "support_negative": 6969
+    "support_positive": 7384,
+    "support_negative": 3085
   },
   "history": {
     "loss": [
-      0.51102,
-      0.45441,
-      0.44435,
-      0.43414,
-      0.42668,
-      0.42004,
-      0.41229,
-      0.40784
+      0.52024,
+      0.47945,
+      0.46516,
+      0.45427,
+      0.44411,
+      0.43667,
+      0.42834,
+      0.42123
     ],
     "val_auc": [
-      0.85319,
-      0.851,
-      0.85279,
-      0.85515,
-      0.85304,
-      0.85239,
-      0.85563,
-      0.85745
+      0.76708,
+      0.7666,
+      0.76468,
+      0.7697,
+      0.77055,
+      0.77605,
+      0.77748,
+      0.77481
     ]
   }
 }

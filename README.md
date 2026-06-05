@@ -151,24 +151,29 @@ splits), fine-tunes a pretrained ResNet18 with class-weighted loss, evaluates on
 held-out test set, and writes `metrics/cnn/metrics.json` — the single source of
 truth for the numbers below.
 
-### 5. Train the climate LSTM + ensemble
+### 5. Train the climate LSTM + ensemble (global)
 
 ```bash
-# Fire labels: FPA-FOD US wildfires (Kaggle). Weather: Open-Meteo (no key).
-FOD=$(uv run sentinel prepare-data --source kaggle \
-      --dataset rtatman/188-million-us-wildfires)/FPA_FOD_20170508.sqlite
+# Global fire labels: NASA MODIS active fire, 1 year (Kaggle). Weather: Open-Meteo.
+GF=$(uv run sentinel prepare-data --source kaggle \
+     --dataset brsdincer/leo-satellite-global-fire-data-1-year-nasa)
+CSV="$GF/WORLD/2020_2021_01_JUN_TO_FROM_MODIS.csv"
 
-uv run sentinel train-lstm --fod-sqlite "$FOD" --output metrics/lstm
+uv run sentinel train-lstm-global --fire-csv "$CSV" --output metrics/lstm \
+    --max-regions 200 --cell-size 2.0
 uv run sentinel build-ensemble \
     --lstm-dir metrics/lstm \
     --cnn-checkpoint metrics/cnn/cnn_resnet18.pt \
     --output metrics/ensemble
 ```
 
-`train-lstm` builds region-grouped 14-day weather windows labelled by FOD fires,
-trains a class-weighted Keras LSTM on the leakage-safe split, and writes
+`train-lstm-global` selects the most fire-active grid cells **with geographic
+spread** (round-robin across macro-cells so every continent is represented),
+fetches a year of Open-Meteo weather per region, builds 14-day windows on the
+leakage-safe split, trains a class-weighted Keras LSTM, and writes
 `metrics/lstm/metrics.json`. `build-ensemble` derives a per-region CNN imagery
 prior and fits a logistic meta-model fusing it with the LSTM climate risk.
+(For a US-only model instead, `train-lstm --fod-sqlite <FPA-FOD.sqlite>`.)
 
 ## Measured results
 
@@ -190,39 +195,47 @@ prior and fits a logistic meta-model fusing it with the LSTM climate risk.
 ResNet18 transfer learning · 5,000 balanced tiles · 402 grid-cell regions
 (289 / 57 / 56 train / val / test) · class-weighted loss · CPU, 6 epochs, seed 42.
 
-### Phase 3 — LSTM (climate sequence → ignition in next 7 days)
+### Phase 3 — LSTM (climate sequence → ignition in next 7 days), **global**
 
-From `metrics/lstm/metrics.json`. 91,182 sliding 14-day weather windows across
-**42 Northern-California grid regions** (30 / 6 / 6 train / val / test, no region
-leakage), labelled by FPA-FOD fire occurrences. Predicting ignition **7 days
-ahead from weather alone is intentionally hard** — these are honest numbers.
+From `metrics/lstm/metrics.json`. 72,200 sliding 14-day weather windows across
+**200 fire-active regions worldwide** (142 / 29 / 29 train / val / test, no region
+leakage — held-out regions span multiple continents), labelled by NASA MODIS
+global active-fire detections (Jun 2020 – Jun 2021). Predicting ignition **7 days
+ahead from weather alone, evaluated on entirely unseen parts of the planet** —
+these are honest numbers.
 
 | Metric | Test | Notes |
 | --- | --- | --- |
-| ROC-AUC | **0.80** | ranking quality on unseen regions |
-| Recall | 0.73 | |
-| Precision | 0.69 | |
-| F1 | 0.71 | |
-| False-alarm rate | 0.28 | |
+| ROC-AUC | **0.85** | ranking quality on unseen global regions |
+| Recall | 0.85 | |
+| Precision | 0.86 | |
+| F1 | 0.85 | |
+| False-alarm rate | 0.33 | |
+
+> The earlier US-only model (FPA-FOD, Northern California, AUC 0.80) was retrained
+> on a globally-distributed fire dataset — region selection spreads across
+> continents so the model sees savanna, Mediterranean, boreal, and temperate fire
+> regimes, not just one. Any point on Earth is scorable via `/risk/point`.
 
 ### Phase 3 — CNN + LSTM ensemble (one risk score per region/day)
 
 From `metrics/ensemble/metrics.json`. A logistic meta-model fuses a **static CNN
 imagery prior** (one Sentinel-2 tile per region) with the **dynamic LSTM climate
-risk**, fit on validation and evaluated on held-out test regions.
+risk**, fit on validation and evaluated on the 29 held-out global regions.
 
 | Variant | ROC-AUC | Recall | False-alarm |
 | --- | --- | --- | --- |
-| **Ensemble (meta-model)** | 0.76 | 0.73 | 0.32 |
-| LSTM only | 0.80 | 0.73 | 0.28 |
-| CNN only | 0.47 | 0.17 | 0.16 |
-| Weighted average (0.5/0.5) | 0.68 | 0.47 | 0.18 |
+| LSTM only | 0.854 | 0.847 | 0.335 |
+| **Ensemble (meta-model)** | 0.826 | 0.805 | **0.287** |
+| CNN only | 0.620 | 0.168 | 0.065 |
+| Weighted average (0.5/0.5) | 0.844 | 0.362 | 0.073 |
 
-**Honest finding:** the meta-model learned to weight the LSTM ~3× the CNN
-(coefficients 5.18 vs 1.57), because the CNN — trained on Canadian aerial tiles —
-**transfers poorly to NorCal Sentinel-2 imagery (domain shift, AUC ≈ 0.47)**. The
-climate signal dominates; the imagery prior adds little on this evaluation. The
-ensemble plumbing is real and ready for a same-domain imagery model.
+**Honest finding:** the climate LSTM is the dominant signal (AUC 0.85). The
+Canada-trained CNN carries *some* worldwide signal (AUC 0.62 — flammable
+landscape correlates with fire), but it's noisy, so the meta-model down-weights
+it (it even learns a slightly negative CNN coefficient). The fusion trades a
+little ranking AUC for a meaningfully **lower false-alarm rate (0.287 vs 0.335)**
+than the LSTM alone — a real, if modest, multimodal benefit, reported straight.
 
 ## API
 

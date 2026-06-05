@@ -90,15 +90,21 @@ def _positive_rate(y: np.ndarray, idx: list[int]) -> float:
 def train_lstm(
     cfg: LstmTrainConfig,
     *,
+    regions: list[GridRegion] | None = None,
     weather_by_region: dict[str, list[WeatherDaily]] | None = None,
     fires_by_region: dict[str, set[date]] | None = None,
 ) -> dict[str, Any]:
-    """Train the climate LSTM and return the metrics report (also saved)."""
+    """Train the climate LSTM and return the metrics report (also saved).
+
+    ``regions`` defaults to a grid over ``cfg.bbox``; pass an explicit list
+    (e.g. globally-selected fire-active cells) to train a worldwide model.
+    """
     seed_everything(cfg.seed)
     seed_tensorflow(cfg.seed)
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
 
-    regions = grid_regions(cfg.bbox, cfg.cell_size)
+    if regions is None:
+        regions = grid_regions(cfg.bbox, cfg.cell_size)
     if weather_by_region is None:
         weather_by_region = fetch_weather_for_regions(regions, cfg.start, cfg.end)
     if fires_by_region is None:

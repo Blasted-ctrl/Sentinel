@@ -238,6 +238,60 @@ def train_lstm_command(
     typer.echo(json.dumps(report["test"], indent=2))
 
 
+@app.command("train-lstm-global")
+def train_lstm_global_command(
+    fire_csv: Annotated[
+        str, typer.Option("--fire-csv", help="global fire CSV (latitude,longitude,acq_date)")
+    ],
+    output: Annotated[str, typer.Option("--output")] = "metrics/lstm",
+    cell_size: Annotated[float, typer.Option("--cell-size")] = 2.0,
+    max_regions: Annotated[int, typer.Option("--max-regions")] = 200,
+    min_fires: Annotated[int, typer.Option("--min-fires")] = 40,
+    lookback: Annotated[int, typer.Option("--lookback")] = 14,
+    horizon: Annotated[int, typer.Option("--horizon")] = 7,
+    epochs: Annotated[int, typer.Option("--epochs")] = 8,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+) -> None:
+    """Train a GLOBAL climate LSTM from a worldwide fire dataset."""
+    settings = get_settings()
+    configure_logging(settings.log_level, json=settings.log_json)
+    from datetime import timedelta
+    from pathlib import Path
+
+    from sentinel.data.climate import fetch_weather_for_regions  # lazy
+    from sentinel.data.global_fire import build_global_fire_regions
+    from sentinel.training.train_lstm import LstmTrainConfig, train_lstm  # lazy (tf)
+
+    regions, fires_by_region, (min_date, max_date) = build_global_fire_regions(
+        Path(fire_csv),
+        cell_size=cell_size,
+        max_regions=max_regions,
+        min_fires=min_fires,
+    )
+    start = min_date - timedelta(days=lookback + 1)
+    weather = fetch_weather_for_regions(regions, start, max_date)
+
+    cfg = LstmTrainConfig(
+        fod_sqlite=Path("global"),
+        output_dir=Path(output),
+        bbox=BBox(-180.0, -60.0, 180.0, 75.0),
+        cell_size=cell_size,
+        start=start,
+        end=max_date,
+        lookback=lookback,
+        horizon=horizon,
+        epochs=epochs,
+        seed=seed,
+    )
+    report = train_lstm(
+        cfg,
+        regions=regions,
+        weather_by_region=weather,
+        fires_by_region=fires_by_region,
+    )
+    typer.echo(json.dumps(report["test"], indent=2))
+
+
 @app.command("build-ensemble")
 def build_ensemble_command(
     lstm_dir: Annotated[
