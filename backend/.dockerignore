@@ -6,11 +6,9 @@ __pycache__/
 .ruff_cache/
 .git/
 tests/
-# Large artifacts (mounted as a volume for the worker instead of baked in).
-metrics/
+# Datasets + training-only artifacts (not needed to serve).
 artifacts/
 data/
-*.pt
-*.keras
-*.npz
-*.joblib
+# The serving weights under metrics/ (committed via Git LFS) ARE baked in so the
+# image is self-contained; only the large training-only npz is kept out.
+metrics/lstm/ensemble_inputs.npz
