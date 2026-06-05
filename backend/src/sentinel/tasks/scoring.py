@@ -47,10 +47,20 @@ def rescore_regions(
     *,
     bbox_fn: Callable[[Region], BBox] = region_to_bbox,
 ) -> dict[str, Any]:
-    """Score every region for ``day`` and upsert the results. Returns a summary."""
+    """Score every region for ``day`` and upsert the results. Returns a summary.
+
+    A failure scoring one region (e.g. a transient weather/imagery API error)
+    is logged and skipped so it never aborts the whole scheduled run.
+    """
     scored = 0
+    failed = 0
     for region in repository.list_regions(session):
-        components = scorer.score(region.name, bbox_fn(region), day)
+        try:
+            components = scorer.score(region.name, bbox_fn(region), day)
+        except Exception as exc:
+            failed += 1
+            logger.warning("rescore.region_failed", region=region.name, error=str(exc))
+            continue
         repository.upsert_risk_score(
             session,
             region.id,
@@ -61,8 +71,8 @@ def rescore_regions(
             model_version=scorer.model_version,
         )
         scored += 1
-    logger.info("rescore.done", date=day.isoformat(), scored=scored)
-    return {"date": day.isoformat(), "scored": scored}
+    logger.info("rescore.done", date=day.isoformat(), scored=scored, failed=failed)
+    return {"date": day.isoformat(), "scored": scored, "failed": failed}
 
 
 @celery_app.task(name="sentinel.tasks.scoring.rescore_all_regions")

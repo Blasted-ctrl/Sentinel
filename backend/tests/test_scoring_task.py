@@ -42,7 +42,7 @@ def test_rescore_regions_scores_each(monkeypatch: pytest.MonkeyPatch) -> None:
         bbox_fn=lambda r: BBox(-1.0, -1.0, 1.0, 1.0),
     )
 
-    assert summary == {"date": "2024-08-01", "scored": 2}
+    assert summary == {"date": "2024-08-01", "scored": 2, "failed": 0}
     assert {rid for rid, _ in captured} == {1, 2}
     assert captured[0][1]["ensemble_score"] == 0.7
     assert captured[0][1]["model_version"] == "test-v1"
