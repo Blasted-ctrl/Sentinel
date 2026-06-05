@@ -148,43 +148,7 @@ docker compose up -d        # db, redis, minio, api, worker, beat
 The web process stays lightweight — it serves scores that a **Celery** worker
 computes and stores in PostGIS, re-scoring every tracked region daily.
 
-## Deploy
-
-The serving model weights (`backend/metrics/**`) ship with the repo via **Git
-LFS**, so both platforms build self-contained — no separate artifact hosting.
-Render and Vercel fetch LFS objects on checkout automatically.
-
-**Backend → Render** ([`render.yaml`](render.yaml))
-
-1. Render Dashboard → **New → Blueprint** → point at this repo. The blueprint
-   provisions PostGIS, Redis, the API (Docker), and the Celery worker/beat.
-2. On the `sentinel-api` service, set `CORS_ORIGINS` to your Vercel URL.
-3. After the first deploy, open the API service's **Shell** and seed the DB once
-   (this is what populates the map):
-
-   ```bash
-   sentinel init-db              # enable PostGIS + create tables
-   sentinel seed-demo --score    # seed + score global regions
-   ```
-
-   Scoring loads PyTorch + TensorFlow, so the worker runs on a paid plan; bump the
-   API plan too if you want on-demand `/risk/point` scoring under load.
-
-**Frontend → Vercel**
-
-1. Import the repo; set the **root directory** to `frontend/`. Next.js is auto-detected.
-2. Add `NEXT_PUBLIC_API_URL` = your Render API URL (e.g. `https://sentinel-api.onrender.com`).
-3. Redeploy if you added the env var after the first build.
-
 `docker-compose.yml` runs the whole stack locally in one command.
-
-## Security
-
-- **No secrets in code** — config comes from `.env`; only `.env.example` is committed.
-- **Input validation** on every boundary (coordinates, dates, Pydantic settings).
-- **No SQL-injection surface** — parameterized SQLAlchemy ORM throughout.
-- **Hardened containers** — non-root images, pinned lockfiles (`uv.lock`, `pnpm-lock.yaml`).
-- **Restricted CORS** and read-only public endpoints.
 
 ## License
 
