@@ -277,15 +277,11 @@ export function Dashboard() {
                 </div>
                 <div className="region-name">{view.name}</div>
                 <div className="bar-label" style={{ marginTop: 4 }}>
-                  <span>Ensemble · CNN imagery + LSTM climate</span>
+                  <span>Risk breakdown</span>
                 </div>
                 <ScoreBar label="Ensemble" value={view.ensemble} icon={<Activity size={13} />} />
-                <ScoreBar
-                  label="Climate (LSTM)"
-                  value={view.lstm}
-                  icon={<ThermometerSun size={13} />}
-                />
-                <ScoreBar label="Imagery (CNN)" value={view.cnn} icon={<Satellite size={13} />} />
+                <ScoreBar label="Climate" value={view.lstm} icon={<ThermometerSun size={13} />} />
+                <ScoreBar label="Imagery" value={view.cnn} icon={<Satellite size={13} />} />
               </>
             ) : (
               <div className="empty">
