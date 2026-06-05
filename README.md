@@ -150,11 +150,33 @@ computes and stores in PostGIS, re-scoring every tracked region daily.
 
 ## Deploy
 
-- **Frontend → Vercel.** Import the repo, set the root to `frontend/`, add
-  `NEXT_PUBLIC_API_URL`. Next.js is auto-detected.
-- **Backend → Render.** [`render.yaml`](render.yaml) provisions PostGIS, Redis,
-  the API (Docker), and the Celery worker/beat. Set `CORS_ORIGINS` to your Vercel
-  URL. (`docker-compose.yml` runs the whole stack locally.)
+The serving model weights (`backend/metrics/**`) ship with the repo via **Git
+LFS**, so both platforms build self-contained — no separate artifact hosting.
+Render and Vercel fetch LFS objects on checkout automatically.
+
+**Backend → Render** ([`render.yaml`](render.yaml))
+
+1. Render Dashboard → **New → Blueprint** → point at this repo. The blueprint
+   provisions PostGIS, Redis, the API (Docker), and the Celery worker/beat.
+2. On the `sentinel-api` service, set `CORS_ORIGINS` to your Vercel URL.
+3. After the first deploy, open the API service's **Shell** and seed the DB once
+   (this is what populates the map):
+
+   ```bash
+   sentinel init-db              # enable PostGIS + create tables
+   sentinel seed-demo --score    # seed + score global regions
+   ```
+
+   Scoring loads PyTorch + TensorFlow, so the worker runs on a paid plan; bump the
+   API plan too if you want on-demand `/risk/point` scoring under load.
+
+**Frontend → Vercel**
+
+1. Import the repo; set the **root directory** to `frontend/`. Next.js is auto-detected.
+2. Add `NEXT_PUBLIC_API_URL` = your Render API URL (e.g. `https://sentinel-api.onrender.com`).
+3. Redeploy if you added the env var after the first build.
+
+`docker-compose.yml` runs the whole stack locally in one command.
 
 ## Security
 

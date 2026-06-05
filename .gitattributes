@@ -1,6 +1,5 @@
 # Normalise line endings to LF in the repository (important for Docker/CI Linux).
 * text=auto eol=lf
-
 # Binary assets
 *.png binary
 *.jpg binary
@@ -12,7 +11,10 @@
 *.onnx binary
 *.h5 binary
 *.keras binary
-
 # Generated lockfiles: keep but mark as such for review tooling.
 uv.lock linguist-generated=true
 pnpm-lock.yaml linguist-generated=true
+backend/metrics/cnn/cnn_resnet18.pt filter=lfs diff=lfs merge=lfs -text
+backend/metrics/lstm/lstm_climate.keras filter=lfs diff=lfs merge=lfs -text
+backend/metrics/lstm/scaler.npz filter=lfs diff=lfs merge=lfs -text
+backend/metrics/ensemble/ensemble.joblib filter=lfs diff=lfs merge=lfs -text

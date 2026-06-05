@@ -25,7 +25,9 @@ out/
 .pnpm-store/
 *.tsbuildinfo
 
-# ML model weights (large; tracked via S3, not git). metrics.json IS committed.
+# ML model weights are large, so they are ignored by default. The four weights
+# the app needs to *serve* are the exception: they're committed via Git LFS (see
+# .gitattributes) so the backend can deploy self-contained. metrics.json IS committed.
 *.pt
 *.pth
 *.onnx
@@ -33,6 +35,11 @@ out/
 *.keras
 *.npz
 *.joblib
+# Serving weights — committed via Git LFS so a fresh deploy has the models.
+!backend/metrics/cnn/cnn_resnet18.pt
+!backend/metrics/lstm/lstm_climate.keras
+!backend/metrics/lstm/scaler.npz
+!backend/metrics/ensemble/ensemble.joblib
 # Downloaded datasets + training artifacts (scoped so the src/sentinel/data
 # package is NOT ignored).
 /data/
