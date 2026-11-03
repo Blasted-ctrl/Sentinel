@@ -92,3 +92,22 @@ def test_init_db_command(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(cli.app, ["init-db"])
     assert result.exit_code == 0, result.output
     assert called.get("ran") is True
+
+
+def test_reliable_training_cli_rejects_bad_dates_before_loading_data() -> None:
+    result = runner.invoke(
+        cli.app,
+        [
+            "train-reliable-climate",
+            "--data",
+            "missing.npz",
+            "--train-end",
+            "bad-date",
+            "--calibration-end",
+            "2020-12-31",
+            "--tune-end",
+            "2021-12-31",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "train-end must be YYYY-MM-DD" in result.output

@@ -323,6 +323,61 @@ def build_ensemble_command(
     typer.echo(json.dumps(report["test"]["ensemble"], indent=2))
 
 
+@app.command("prepare-climate")
+def prepare_climate_command(
+    fod_sqlite: Annotated[str, typer.Option("--fod-sqlite")],
+    region: Annotated[str, typer.Option("--region", help="bbox min_lon,min_lat,max_lon,max_lat")],
+    start: Annotated[str, typer.Option("--start")],
+    end: Annotated[str, typer.Option("--end")],
+    citation: Annotated[str, typer.Option("--citation", help="source edition/DOI")],
+    output: Annotated[str, typer.Option("--output")] = "data/climate.npz",
+    cell_size: Annotated[float, typer.Option("--cell-size")] = 1.0,
+    block_size: Annotated[float, typer.Option("--block-size")] = 4.0,
+    lookback: Annotated[int, typer.Option("--lookback")] = 14,
+    horizon: Annotated[int, typer.Option("--horizon")] = 7,
+) -> None:
+    """Cache an unfiltered FPA-FOD grid + historical weather (network required)."""
+    from pathlib import Path
+
+    from sentinel.data.prepare_climate import prepare_climate_cache
+
+    try:
+        path = prepare_climate_cache(
+            Path(fod_sqlite), Path(output), parse_bbox(region),
+            _parse_date(start, "start"), _parse_date(end, "end"), citation=citation,
+            cell_size=cell_size, block_size=block_size, lookback=lookback, horizon=horizon,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(str(path))
+
+
+@app.command("train-reliable-climate")
+def train_reliable_climate_command(
+    data: Annotated[str, typer.Option("--data", help="NPZ from prepare-climate")],
+    train_end: Annotated[str, typer.Option("--train-end")],
+    calibration_end: Annotated[str, typer.Option("--calibration-end")],
+    tune_end: Annotated[str, typer.Option("--tune-end")],
+    output: Annotated[str, typer.Option("--output")] = "artifacts/reliable-climate",
+    min_recall: Annotated[float, typer.Option("--min-recall", min=0.01, max=1.0)] = 0.9,
+    seed: Annotated[int, typer.Option("--seed")] = 42,
+) -> None:
+    """Fit, calibrate, set alarms, and test on separate blocks and time periods."""
+    from pathlib import Path
+
+    from sentinel.training.train_reliable import train_reliable_climate
+
+    try:
+        report = train_reliable_climate(
+            Path(data), Path(output), train_end=_parse_date(train_end, "train-end"),
+            calibration_end=_parse_date(calibration_end, "calibration-end"),
+            tune_end=_parse_date(tune_end, "tune-end"), min_recall=min_recall, seed=seed,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(json.dumps(report["test"], indent=2))
+
+
 @app.command("seed-demo")
 def seed_demo(
     region: Annotated[
