@@ -172,15 +172,23 @@ def build_region_windows(
     """Build sliding windows for one region.
 
     A window ending on day ``t`` is labelled 1 if any fire occurs in
-    ``(t, t + horizon]``.
+    ``(t, t + horizon]``. Missing calendar days invalidate the window.
     """
+    if lookback < 1 or horizon < 1:
+        raise ValueError("lookback and horizon must be positive")
     features, dates = _daily_feature_rows(weather)
+    if len(set(dates)) != len(dates):
+        raise ValueError("weather dates must be unique")
     n = len(dates)
     xs: list[np.ndarray] = []
     ys: list[int] = []
     groups: list[str] = []
     end_dates: list[date] = []
     for t in range(lookback - 1, n - horizon):
+        if dates[t + horizon] - dates[t - lookback + 1] != timedelta(
+            days=lookback + horizon - 1
+        ):
+            continue
         window = features[t - lookback + 1 : t + 1]
         if window.shape[0] != lookback:
             continue

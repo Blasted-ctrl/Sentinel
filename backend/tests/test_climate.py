@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from sentinel.data.climate import (
     N_FEATURES,
@@ -84,6 +85,22 @@ def test_window_labels_use_horizon() -> None:
     # Window ending 2012-01-10: horizon 11,12,13 -> negative.
     assert y[dates.index(date(2012, 1, 10))] == 0
     assert set(groups) == {"r"}
+
+
+def test_windows_do_not_bridge_missing_calendar_days() -> None:
+    weather = _weather_series(date(2012, 1, 1), 15)
+    del weather[7]
+    _, _, _, dates = build_region_windows("r", weather, set(), lookback=3, horizon=2)
+    assert dates == [date(2012, 1, d) for d in (3, 4, 5, 11, 12, 13)]
+
+
+def test_windows_reject_duplicate_days_and_invalid_lengths() -> None:
+    weather = _weather_series(date(2012, 1, 1), 15)
+    with pytest.raises(ValueError, match="unique"):
+        build_region_windows("r", [*weather, weather[0]], set(), lookback=3, horizon=2)
+    for lookback, horizon in ((0, 2), (3, 0), (-1, 2)):
+        with pytest.raises(ValueError, match="positive"):
+            build_region_windows("r", weather, set(), lookback=lookback, horizon=horizon)
 
 
 def test_assemble_and_standardize() -> None:
