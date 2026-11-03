@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
+  <title id="title">Forecast evaluation across new regions and later years</title>
+  <desc id="desc">Four disjoint sets of spatial blocks. Training uses 2010 through 2017, calibration 2018 through 2019, alarm tuning 2020 through 2021, and testing 2022 through 2024. All other region and time combinations are discarded. Boundary windows are purged.</desc>
+  <rect width="1200" height="440" rx="20" fill="#101d25"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <text x="40" y="48" fill="#f5f4eb" font-size="25" font-weight="700">A harder test for a more useful forecast</text>
+    <text x="40" y="78" fill="#a8bcc4" font-size="15">Separate geography. Later seasons. One job for each partition.</text>
+    <g fill="#a8bcc4" font-size="14" text-anchor="middle">
+      <text x="340" y="119">2010–2017</text><text x="570" y="119">2018–2019</text>
+      <text x="800" y="119">2020–2021</text><text x="1030" y="119">2022–2024</text>
+    </g>
+    <g fill="#172a34" stroke="#2a404b" stroke-width="1">
+      <rect x="230" y="135" width="910" height="48" rx="6"/>
+      <rect x="230" y="195" width="910" height="48" rx="6"/>
+      <rect x="230" y="255" width="910" height="48" rx="6"/>
+      <rect x="230" y="315" width="910" height="48" rx="6"/>
+    </g>
+    <g fill="#d3dfe2" font-size="15">
+      <text x="40" y="165">Training blocks</text><text x="40" y="225">Calibration blocks</text>
+      <text x="40" y="285">Alarm-tuning blocks</text><text x="40" y="345">Final test blocks</text>
+    </g>
+    <rect x="230" y="135" width="220" height="48" rx="6" fill="#79c6ac"/>
+    <rect x="460" y="195" width="220" height="48" rx="6" fill="#8dbfd7"/>
+    <rect x="690" y="255" width="220" height="48" rx="6" fill="#e9c479"/>
+    <rect x="920" y="315" width="220" height="48" rx="6" fill="#ef987c"/>
+    <g fill="#10232c" font-size="16" font-weight="700" text-anchor="middle">
+      <text x="340" y="165">Fit weather model</text><text x="570" y="225">Calibrate probabilities</text>
+      <text x="800" y="285">Set alert threshold</text><text x="1030" y="345">Measure once</text>
+    </g>
+    <text x="40" y="407" fill="#a8bcc4" font-size="14">Muted cells are excluded. Entire lookback + target windows stay inside each period. Example dates; experimental protocol.</text>
+  </g>
+</svg>
