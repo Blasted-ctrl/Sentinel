@@ -63,3 +63,16 @@ def test_weather_rejects_reversed_range() -> None:
     client = WeatherClient(client=httpx.Client())
     with pytest.raises(ValueError):
         client.fetch_daily(0.0, 0.0, date(2024, 8, 2), date(2024, 8, 1))
+
+
+@respx.mock
+def test_weather_can_pin_one_reanalysis_model() -> None:
+    route = respx.get(url__startswith=_ARCHIVE_URL).mock(
+        return_value=httpx.Response(200, json=_PAYLOAD)
+    )
+    client = WeatherClient(model="era5", client=httpx.Client())
+    try:
+        client.fetch_daily(38.75, -120.25, date(2024, 8, 1), date(2024, 8, 2))
+        assert route.calls[0].request.url.params["models"] == "era5"
+    finally:
+        client.close()

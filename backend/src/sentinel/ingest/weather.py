@@ -41,10 +41,12 @@ class WeatherClient:
         self,
         *,
         archive_url: str = "https://archive-api.open-meteo.com/v1/archive",
+        model: str | None = None,
         client: httpx.Client | None = None,
         timeout: float = 60.0,
     ) -> None:
         self.archive_url = archive_url
+        self.model = model
         self._client = client or httpx.Client(timeout=timeout)
 
     @retry(
@@ -72,6 +74,8 @@ class WeatherClient:
             "daily": ",".join(_DAILY_VARS),
             "timezone": "UTC",
         }
+        if self.model is not None:
+            params["models"] = self.model
         payload = self._get(params)
         daily = payload.get("daily")
         if not isinstance(daily, dict):
